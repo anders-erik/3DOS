@@ -66,7 +66,42 @@ $ echo $GTK_PATH
 Obviously snap/code is hogging on GTK_PATH, but how would I know it's that veriable thats causing probems??
 The message clearly shows that 'code' is hijacking the veriable that qemu needs. So let's try to reinstall VSCode without snap...
 
+### Uninstall 'Code' using snap, and reinstall using apt
+- uninstall with snap
+- install using downloaded .deb
+- all keybindings/extension persisted!
+
+### Second attempt with 'Hello World' - OK
+```
+qemu-system-x86_64 -kernel kernel.bin
+```
+IT WORKS!
 
 
+### Automate using provided Makefile
 
+- make task that runs `make qemu`
+
+
+### Debugger
+Two steps:
+- launch window : `qemu-system-x86_64 -kernel kernel.bin -S -s`
+- attach debugger : `gdb`
+
+.gdbinit file: 
+(Don't forget to add the new gdbinit-path to configuration file)
+```
+target remote localhost:1234
+symbol-file kernel.bin
+```
+
+`b start`
+`layout regs`
+`si`
+
+### Check multiboot header
+test in terminal. '0' for success, '1' otherwise.
+```
+grub-file --is-x86-multiboot kernel.bin && echo $?
+```
 

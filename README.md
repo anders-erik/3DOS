@@ -1,5 +1,5 @@
 # 3DOS
 
-My first operating system that relies on not on a terminal, or windows for interation, but only through a 3D world.
+My first operating system that relies not on a terminal or window for user navigation, but on a virtual 3D world.
 
 
