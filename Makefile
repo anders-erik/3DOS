@@ -2,7 +2,7 @@ kernel := build/kernel.bin
 
 linker_script := linker.ld
 assembly_source_files := $(wildcard *.asm)
-assembly_object_files := $(patsubst %.asm, build/%.o, $(assembly_source_files))
+assembly_object_files := $(patsubst %.asm, build/%.o, $(assembly_source_files)) 
 
 .PHONY: all clean kernel qemu qemu-gdb
 
@@ -19,7 +19,7 @@ qemu-gdb: $(kernel)
 	qemu-system-x86_64 -vga std -s -serial file:serial.log -S -kernel $(kernel)
 
 $(kernel): $(assembly_object_files) $(linker_script)
-	ld -m elf_i386 -n -T $(linker_script) -o $(kernel) $(assembly_object_files)
+	ld -m elf_i386 -n -T $(linker_script) -o $(kernel) $(assembly_object_files) build/add_c.o
 
 # compile assembly files
 build/%.o: %.asm

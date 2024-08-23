@@ -1,3 +1,9 @@
+extern add_c
+
+section .data
+row5 dd 0xb8280 ; 5th row 
+row6 dd 0xb8320 ; 6th row 
+
 global start
 
 section .text
@@ -28,15 +34,62 @@ start:
 
     mov word [0xb8140], 0x0232 ; 2 ; third row - offset = 320 bytes = 0x0140
 
-    mov word [0xb81e0], 0x0233 ; 3 ; third row - offset = 480 bytes = 0x01e0
+    mov word [0xb81e0], 0x0233 ; 3 ; forth row - offset = 480 bytes = 0x01e0
     
-    mov word [0xb8280], 0x0235 ; 4 ; forth row - offset = 640 bytes = 0x0280
+    ;mov word [0xb8280], 0x0235 ; 5 ; fifth row - offset = 640 bytes = 0x0280
 
+    
+    mov eax, 1
+    mov ebx, 4
+    call _add_numbers ; sum cannot exceed 9...
+    add eax, 0x0230
+
+    ; Can't move directly from memory to memory
+    ;mov dword [row5], eax 
+
+    ; load the address 0xb8280 stored in 'result' into ebx insetad, then write output to address in ebx
+    mov ebx, [row5]   
+    mov dword [ebx], eax
+
+
+
+
+    ; EXTERNAL C FUNCTION 'add_c(int x, int y)'
+    
+    ; This did not work
+    ; mov eax, 1
+    ; mov edx, 6
+
+    ; Inspecting the c-object: '$ objdump -d build/add_c.o'
+    ; The add_c routine is using the stack!
+    mov eax, 3 ; parameter 1
+    push eax   
+    mov eax, 6 ; parameter 2
+    push eax   
+    call add_c 
+    add esp, 8 ; reset stack pointer
+    
+    add eax, 0x0230 ; add to function return to render correct char 
+    
+    mov ebx, [row6]   
+    mov dword [ebx], eax
+
+
+
+    ; Did not work...
     ; call wait_for_keypress
 
 
-
     hlt ; Halt CPU 
+
+
+
+_add_numbers:
+    add eax, ebx
+    ret
+
+
+
 ; GPT
 wait_for_keypress:
     in al, 0x64           ; Read status from port 0x64
