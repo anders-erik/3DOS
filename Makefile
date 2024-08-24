@@ -2,9 +2,11 @@ kernel := build/kernel.bin
 
 linker_script := linker.ld
 assembly_source_files := $(wildcard *.asm)
+assembly_source_files := $(filter-out boot_pixel.asm, $(assembly_source_files)) # ignore files
 assembly_object_files := $(patsubst %.asm, build/%.asm.o, $(assembly_source_files))
 
 c_source_files := $(wildcard *.c)
+c_source_files := $(filter-out future_file.c, $(c_source_files)) # ignore files
 c_object_files := $(patsubst %.c, build/%.c.o, $(c_source_files))
 
 
