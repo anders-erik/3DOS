@@ -1,3 +1,4 @@
+
 extern add_c
 
 section .data
@@ -5,9 +6,13 @@ row5 dd 0xb8280 ; 5th row
 row6 dd 0xb8320 ; 6th row 
 
 global start
+; global start2
 
 section .text
 bits 32    ; By default, GRUB loads the kernel in 32-bit mode
+
+
+
 start:
     
     ; Print `Hello world!` on the screen by placing ASCII 
@@ -62,7 +67,7 @@ start:
 
     ; Inspecting the c-object: '$ objdump -d build/add_c.o'
     ; The add_c routine is using the stack!
-    mov eax, 3 ; parameter 1
+    mov eax, 2 ; parameter 1
     push eax   
     mov eax, 6 ; parameter 2
     push eax   
@@ -79,16 +84,37 @@ start:
     ; Did not work...
     ; call wait_for_keypress
 
+    ;   
+    sti  ; Enable interrupts
 
-    hlt ; Halt CPU 
+    ; mov ah, 0x00   ; Function: Set Video Mode
+    ; mov al, 0x02   ; Mode 13h (320x200, 256 colors)
+    ; int 0x10       ; Call BIOS interrupt
 
+    mov word [0xA0000], 0x03 ; e 
+
+    ; mov ah, 0x00   ; Function: Set Video Mode
+    ; mov al, 0x03   ; Mode 03h (80x25, text mode)
+    ; int 0x10       ; Call BIOS interrupt
+    
+    cli  ; Disable interrupts
+
+    ; hlt ; Halt CPU 
+    ; .die
+    ; hlt
+    ; jmp .die
+    haltloop: 
+    hlt 
+    jmp haltloop
 
 
 _add_numbers:
     add eax, ebx
     ret
 
-
+start2:
+    mov word [0xb8000], 0x0248 ; H
+    hlt 
 
 ; GPT
 wait_for_keypress:
