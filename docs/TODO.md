@@ -1,4 +1,15 @@
 
+# 2024-08-24
+
+- complete binary printing
+- output decimal number
+- fibbonacci
+- raw draw:
+    - draw triangle
+    - rotate triangle
+        - implement cos/sin
+- gdb ui
+
 # 2024-08-23
 
 ### next tasks
