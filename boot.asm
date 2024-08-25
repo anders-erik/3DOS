@@ -111,9 +111,10 @@ start:
     jmp print_word_to_vga
 wrap_up:
     xor eax, eax
-    mov word [0xb8000], 0x0233
-    mov eax, [0xb8000]
-    mov [0xb8002], eax
+    ; mov word [0xb8000], 0x0233
+    mov ax, [0xb8004]
+    
+    ; mov [0xb8002], ax
     ; hlt ; Halt CPU 
     ; .die
     ; hlt
@@ -140,7 +141,7 @@ print_word_to_vga:
     xor esi, esi
     ; mov ebx, 0xb8000           ; VGA memory base address
     xor ecx, ecx                ; Clear CX (used as a counter)
-    mov cx, 16                ; We will print 16 characters (bits)
+    mov ecx, 17               ; 16 chars + inital 'dec' in loop
 
     mov si, word [row]        ; Load row value into SI
     mov di, word [col]        ; Load col value into DI
@@ -168,22 +169,24 @@ print_loop:
     rol ax, 1                 ; Rotate the most significant bit to the carry flag
     jc  bit_is_set            ; If carry flag is set, bit is 1
     ; mov al, '0'               ; Otherwise, print '0'
-    mov dl, '8'               ; Otherwise, print '0'
+    mov dl, '0'               ; Otherwise, print '0'
     jmp print_char
 
 bit_is_set:
     ; mov al, '1'               ; Print '1'
-    mov dl, '7'               ; dx holds character value
+    mov dl, '1'               ; dx holds character value
 
 print_char:
     ; mov ah, [color]           ; Load color attribute
     mov dh, [color]           ; Load color attribute
     ; mov [bx], ax              ; Write the character and attribute to VGA memory
-    mov [bx], dx              ; Write the character and attribute to VGA memory
+
+    mov [ebx], dx              ; Write the character and attribute to VGA memory
     ; xor r8, r8        ; debug
     ; mov r8, [0xb8000]  ; debug
     add bx, 2                 ; Move to the next character position
-    loop print_loop           ; Repeat for all 16 bits
+    ; loop print_loop           ; Repeat for all 16 bits
+    jmp print_loop ; ME: I didn;t get 'loop' to work
 
 index_is_zero:
     popa                      ; Restore all general-purpose registers

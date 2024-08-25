@@ -1,7 +1,8 @@
 
 # 2024-08-24
 
-- complete binary printing
+- o : complete binary printing
+    - Problem solved: accidentelly tried to write print-char to 16 bit address. Compiler put output in di instead..
 - output decimal number
 - fibbonacci
 - raw draw:

@@ -33,6 +33,14 @@
             //     "panel": "shared"
             // }
         },
+
+        // Debug tasks
+        {
+            "type" :"shell",
+            "label": "Debug",
+            "dependsOn": ["3DOS : Debug Window", "3DOS : Attach GDB"],
+            "group": "build" // makes task visible 
+        },
         {
             "type": "shell",
             "label": "3DOS : Debug Window",
@@ -57,14 +65,28 @@
             "args": [],
             "options": {},
             "problemMatcher": [],
-            "group": "build"
+            // "dependsOn": ["3DOS : Debug Window"],
+            // "dependsOrder": "parallel",
+            "group": "build",
             // "detail": "compiler: /usr/bin/nasm"
-            // "presentation": {
-            //     "echo": true,
-            //     "reveal": "always",
-            //     "panel": "shared"
-            // }
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new"
+            }
         },
+        {
+            // opens up a new window..
+            "label": "Focus next terminal",
+            "type": "shell",
+            "command": "code --command workbench.action.terminal.focusNext",
+            "presentation": {
+                "reveal": "silent",
+                "echo": true,
+                "focus": false,
+            }
+        },
+
         {
             "type": "shell",
             "label": "Real Mode Draw - Build & Run",
@@ -80,6 +102,6 @@
             //     "reveal": "always",
             //     "panel": "shared"
             // }
-        }
+        },
     ]
 }
