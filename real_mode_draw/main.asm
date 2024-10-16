@@ -11,6 +11,9 @@
 ; This one from GPT also works! Probably the same BIOS?
 ; qemu-system-x86_64 -drive format=raw,file=main.bin // GPT
 
+; DISASSEMBLE
+; objdump -b binary -m i386 -D main.bin
+
 
 
 ; Claude

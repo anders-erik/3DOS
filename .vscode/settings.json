@@ -3,5 +3,6 @@
     // https://stackoverflow.com/questions/48945319/a-keybindings-json-per-workspace-in-visual-studio-code
     "workspaceKeybindings.3DOS_BuildRun.enabled": true, 
     "workspaceKeybindings.3DOS_Build.enabled": true, 
-    "workspaceKeybindings.3DOS_Debug.enabled": true 
+    "workspaceKeybindings.3DOS_Debug.enabled": true,
+    "workspaceKeybindings.3DOS_RealModeDraw.enabled": true,
 }
