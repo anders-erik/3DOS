@@ -1,5 +1,5 @@
-;
-;   A raw binary that renders a pixel for every keyboard stroke
+;   
+;   A raw binary that renders a pixel for every keyboard stroke - this comment was VERY valuable!
 ;
 
 ; RUN
@@ -16,10 +16,34 @@
 
 
 
+; Good updates on 2024-10-31
+; https://claude.ai/chat/31ae4818-1251-4fc4-ae3d-a7d2fb784b69
+; Yet to implement the timer!  or "draw state"
+
+
+; DATA
+; https://cratecode.com/info/x86-nasm-assembly-array-manipulation
+; section .data
+    ; my_array: dw 10, 20, 30, 40, 50 ; An array of 5 bytes
+    ; array_length equ 5        ; Define the length of the array
+
+section .text
+; mov eax, [my_array + 2] ; Move the third element of my_array into eax
+
+; Claude : First, make sure DS is set up correctly
+; mov ax, ds               ; Save current DS
+; mov bx, cs               ; Get code segment
+; mov ds, bx               ; Set DS to same segment as code
+
+
+
+
 ; Claude
 
 [bits 16]
 [org 0x7c00]
+
+
 
 ; Set up video mode (320x200, 256 colors)
 mov ax, 0x13
@@ -31,6 +55,26 @@ mov word [0x24], keyboard_handler
 mov word [0x26], 0
 sti
 
+; NEEDED TO DEFINE THE ARRAY HERE WITHOUT A SECTION-LABEL TO BE ABLE TO USE THE ARRAY!
+word_array: dw 10, 20, 30, 40, 50 ; An array of 5 bytes
+word_buffer: resw 5 ; 10 bytes without specifying initial value
+
+byte_array: times 10 db 0 ; 10 bytes initaliezed to '0'
+byte_array_size: equ 10
+
+frame_buff: times 64 db 0 ; Cant use the 64k that I want for a full framebuffer..
+; frame_buff_size: equ 640
+
+; framebuffer_64k: 0x7E00
+; Initialize buffer location
+    mov ax, 0x7E00     ; Address right after boot sector
+    mov es, ax         ; Set extra segment
+    xor di, di         ; Zero offset
+    mov cx, 10000        ; Number of bytes to clear
+    xor al, al         ; Value to fill (zero)
+    rep stosb          ; Clear the buffer
+
+
 ; Main loop
 main_loop:
     hlt
@@ -38,8 +82,27 @@ main_loop:
 
 ; Keyboard interrupt handler
 keyboard_handler:
-    pusha
+
+    pusha ; Need .286 direcctive? - 2024-10-31 - https://stackoverflow.com/questions/29728171/x86-assembly-set-of-pushes-and-pusha-difference
     in al, 0x60  ; Read keyboard scancode
+
+    ; Read keyboard status & prevent double-handle when pressing key. The follwoing lines prevents handling of key release.
+    ; in al, 0x60        ; Read scan code ; Already done above!
+    test al, 0x80      ; Test if this is a key release (bit 7 set)
+    jnz .done          ; If it's a release, skip drawing
+
+    ; Clear the screen
+    mov ah, 0x06    ; Scroll up function
+    mov al, 0       ; Clear entire screen
+    mov bh, 0x00    ; Black background
+    mov ch, 0       ; Upper left row
+    mov cl, 0       ; Upper left column
+    mov dh, 24      ; Lower right row
+    mov dl, 79      ; Lower right column
+    int 0x10        ; Call BIOS video interrupt
+
+
+   
 
     ; Draw a pixel
     mov ah, 0x0C  ; BIOS video function: write pixel
@@ -59,10 +122,26 @@ keyboard_handler:
     mov word [pixel_y], 0
 
 .done:
+
+    ; 2024-10-31 : six lines added to add two new pixels!
+    mov cx, 2     ; X position for second pixel
+    mov dx, 2     ; Y position for second pixel
+    int 0x10
+    mov cx, 3     ; X position for second pixel
+    mov dx, 3     ; Y position for second pixel
+    int 0x10
+
+    ; 2024-10-31 : testing array
+    mov cx, [word_array]     ; array pos. 5
+    mov dx, [word_array]     ; array pos. 5
+    ; mov cx, 10     ; array pos. 5
+    ; mov dx, 10     ; array pos. 5
+    int 0x10
+    
     mov al, 0x20
     out 0x20, al  ; Send EOI to PIC
     popa
-    iret
+    iret ; interrupt - meaning : 2024-10-31
 
 pixel_x dw 0
 pixel_y dw 0
