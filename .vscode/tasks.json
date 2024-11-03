@@ -59,7 +59,7 @@
         },
         {
             "type": "shell",
-            "label": "3DOS : Attach GDB",
+            "label": "Attach GDB",
             // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
             "command": "gdb",
             "args": [],
@@ -87,11 +87,14 @@
             }
         },
 
+
+        // DRAW / REAL MODE
+
         {
             "type": "shell",
-            "label": "Real Mode Draw - Build & Run",
+            "label": "Draw - Build & Run",
             // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
-            "command": "nasm -f bin -o ./real_mode_draw/main.bin ./real_mode_draw/main.asm && qemu-system-i386 -drive format=raw,file=./real_mode_draw/main.bin ",
+            "command": "nasm -f bin -o ./draw/main.bin ./draw/main.asm && qemu-system-i386 -drive format=raw,file=./draw/main.bin ",
             "args": [],
             "options": {},
             "problemMatcher": [],
@@ -103,5 +106,70 @@
             //     "panel": "shared"
             // }
         },
+        {
+            "type": "shell",
+            "label": "Draw - Window",
+            // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
+            "command": "qemu-system-i386 -s -S -drive format=raw,file=./draw/main.bin",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+            // "detail": "compiler: /usr/bin/nasm"
+            // "presentation": {
+            //     "echo": true,
+            //     "reveal": "always",
+            //     "panel": "shared"
+            // }
+        },
+        {
+            // Claude told me I needed this for gdb
+            "type": "shell",
+            "label": "Draw - Create Debug File",
+            // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
+            "command": "nasm -f bin -o draw/main.bin ./draw/main.asm    &&  nasm -f elf32 -g -F dwarf -D ELF -o ./draw/main.o ./draw/main.asm      &&      ld -m elf_i386 -Ttext 0x7c00 -o ./draw/main.elf ./draw/main.o",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+            // "detail": "compiler: /usr/bin/nasm"
+            // "presentation": {
+            //     "echo": true,
+            //     "reveal": "always",
+            //     "panel": "shared"
+            // }
+        },
+        {
+            "type": "shell",
+            "label": "Draw - Attach GDB",
+            // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
+            "command": "gdb draw/main.elf",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+            // "dependsOn": ["3DOS : Debug Window"],
+            // "dependsOrder": "parallel",
+            "group": "build",
+            // "detail": "compiler: /usr/bin/nasm"
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Draw - Native debug tasks - Claude",
+            "type": "shell",
+            "command": "qemu-system-i386 -s -S -drive format=raw,file=${workspaceFolder}/draw/main.bin",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^$",
+                    "endsPattern": "^$"
+                }
+            }
+        }
     ]
 }

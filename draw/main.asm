@@ -27,7 +27,7 @@
     ; my_array: dw 10, 20, 30, 40, 50 ; An array of 5 bytes
     ; array_length equ 5        ; Define the length of the array
 
-section .text
+; section .text
 ; mov eax, [my_array + 2] ; Move the third element of my_array into eax
 
 ; Claude : First, make sure DS is set up correctly
@@ -35,13 +35,20 @@ section .text
 ; mov bx, cs               ; Get code segment
 ; mov ds, bx               ; Set DS to same segment as code
 
-
+%ifdef ELF
+section .text
+global _start
+_start:
+%else
+[bits 16]
+[org 0x7c00]
+%endif
 
 
 ; Claude
 
-[bits 16]
-[org 0x7c00]
+; [bits 16]
+; [org 0x7c00]
 
 
 
@@ -57,7 +64,7 @@ sti
 
 ; NEEDED TO DEFINE THE ARRAY HERE WITHOUT A SECTION-LABEL TO BE ABLE TO USE THE ARRAY!
 word_array: dw 10, 20, 30, 40, 50 ; An array of 5 bytes
-word_buffer: resw 5 ; 10 bytes without specifying initial value
+; word_buffer: resw 5 ; 10 bytes without specifying initial value
 
 byte_array: times 10 db 0 ; 10 bytes initaliezed to '0'
 byte_array_size: equ 10
@@ -73,6 +80,7 @@ frame_buff: times 64 db 0 ; Cant use the 64k that I want for a full framebuffer.
     mov cx, 10000        ; Number of bytes to clear
     xor al, al         ; Value to fill (zero)
     rep stosb          ; Clear the buffer
+
 
 
 ; Main loop
@@ -131,6 +139,11 @@ keyboard_handler:
     mov dx, 3     ; Y position for second pixel
     int 0x10
 
+
+    mov cx, 3     ; X position for second pixel
+    mov dx, 3     ; Y position for second pixel
+    int 0x10
+
     ; 2024-10-31 : testing array
     mov cx, [word_array]     ; array pos. 5
     mov dx, [word_array]     ; array pos. 5
@@ -146,8 +159,13 @@ keyboard_handler:
 pixel_x dw 0
 pixel_y dw 0
 
+; times 510-($-$$) db 0
+; dw 0xAA55
+
+%ifndef ELF
 times 510-($-$$) db 0
-dw 0xAA55
+dw 0xaa55
+%endif
 
 
 ; GPT - didn't work!

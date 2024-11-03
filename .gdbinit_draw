@@ -1,0 +1,22 @@
+set architecture i8086
+
+# target remote localhost:1234
+
+# symbol-file ./build/kernel.bin
+# file ./real_mode_draw/main.bin
+file /home/anders/dev/3DOS/draw/main.elf
+
+# set architecture i8086
+# add-symbol-file ./real_mode_draw/main.bin 0x7c00
+target remote localhost:1234
+break *0x7c00
+
+# binary print debug
+set disassembly-flavor intel
+lay next
+layout reg
+# break print_word_to_vga
+# break print_loop
+# break index_is_zero
+# c
+
