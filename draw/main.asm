@@ -83,23 +83,81 @@ frame_buff: times 64 db 0 ; Cant use the 64k that I want for a full framebuffer.
 
 
 
+; PIXEL COORIDINATES
+pixel_x dw 0
+pixel_y dw 0
+
 ; Main loop
 main_loop:
     hlt
     jmp main_loop
 
+
+
+
 ; Keyboard interrupt handler
+; Will break the main loop and update the rendered content
 keyboard_handler:
 
     pusha ; Need .286 direcctive? - 2024-10-31 - https://stackoverflow.com/questions/29728171/x86-assembly-set-of-pushes-and-pusha-difference
     in al, 0x60  ; Read keyboard scancode
 
+
     ; Read keyboard status & prevent double-handle when pressing key. The follwoing lines prevents handling of key release.
     ; in al, 0x60        ; Read scan code ; Already done above!
     test al, 0x80      ; Test if this is a key release (bit 7 set)
-    jnz .done          ; If it's a release, skip drawing
+    jz .done          ; If it's a release, skip drawing
 
-    ; Clear the screen
+    
+    call .clear_screen
+
+    call .draw_large_square
+    
+    call .update_location
+    ; in al, 0x60  ; Read keyboard scancode/
+    ; mov cl, al ; trying to detect keyboard input
+    ; mov cx, ax ; trying to detect keyboard input
+
+    call .draw_current_location
+
+    jmp .done
+
+
+
+.draw_current_location:
+; Draw the 'current' pixel
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x0F  ; White color
+    mov cx, [pixel_x]
+    mov dx, [pixel_y]
+    int 0x10
+    ret
+
+; Update current pixel position
+.update_location:
+    inc word [pixel_x]
+    cmp word [pixel_x], 320
+    ret
+    mov word [pixel_x], 0
+    inc word [pixel_y]
+    cmp word [pixel_y], 200
+    ret 
+    mov word [pixel_y], 0
+    ret
+
+; Draw large square
+.draw_large_square:
+    mov bh, 0x06    ; coor
+    mov ch, 10      ; Upper left row of square
+    mov cl, 10      ; Upper left column of square
+    mov dh, 20      ; Lower right row of square
+    mov dl, 20      ; Lower right column of square
+    int 0x10        ; Call BIOS video interrupt
+    ret
+
+
+; Clear the screen
+.clear_screen:
     mov ah, 0x06    ; Scroll up function
     mov al, 0       ; Clear entire screen
     mov bh, 0x00    ; Black background
@@ -108,26 +166,8 @@ keyboard_handler:
     mov dh, 24      ; Lower right row
     mov dl, 79      ; Lower right column
     int 0x10        ; Call BIOS video interrupt
-
-
-   
-
-    ; Draw a pixel
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x0F  ; White color
-    mov cx, [pixel_x]
-    mov dx, [pixel_y]
-    int 0x10
-
-    ; Update pixel position
-    inc word [pixel_x]
-    cmp word [pixel_x], 320
-    jl .done
-    mov word [pixel_x], 0
-    inc word [pixel_y]
-    cmp word [pixel_y], 200
-    jl .done
-    mov word [pixel_y], 0
+    ret
+    
 
 .done:
 
@@ -156,8 +196,6 @@ keyboard_handler:
     popa
     iret ; interrupt - meaning : 2024-10-31
 
-pixel_x dw 0
-pixel_y dw 0
 
 ; times 510-($-$$) db 0
 ; dw 0xAA55
