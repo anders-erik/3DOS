@@ -86,12 +86,22 @@ frame_buff: times 64 db 0 ; Cant use the 64k that I want for a full framebuffer.
 ; PIXEL COORIDINATES
 pixel_x dw 0
 pixel_y dw 0
+; KEYBOARD INPUT CODE
+key_code dw 0
+key_code_ah dw 0
+key_code_al dw 0
+; mov WORD [key_code_ah], 0
+; player location
+x dw 0
+y dw 0
+mov WORD [y], 0
+mov WORD [x], 0
+
 
 ; Main loop
 main_loop:
     hlt
     jmp main_loop
-
 
 
 
@@ -102,26 +112,211 @@ keyboard_handler:
     pusha ; Need .286 direcctive? - 2024-10-31 - https://stackoverflow.com/questions/29728171/x86-assembly-set-of-pushes-and-pusha-difference
     in al, 0x60  ; Read keyboard scancode
 
+    ; store key-information on initial interrupt
+    mov [key_code], ax
+    mov [key_code_ah], ah
+    mov [key_code_al], al
 
     ; Read keyboard status & prevent double-handle when pressing key. The follwoing lines prevents handling of key release.
-    ; in al, 0x60        ; Read scan code ; Already done above!
+    ; in al, 0x60        ; Read scan code ; Already done above! 
     test al, 0x80      ; Test if this is a key release (bit 7 set)
-    jz .done          ; If it's a release, skip drawing
+    jnz .key_released          ; If it's a release, skip drawing
 
-    
+
     call .clear_screen
 
+    ;  DRAW !
+
+    
+
     call .draw_large_square
+
+    ;  try to understand key_code values
+    
+    ; Draw al as x, and ah as y
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x0A  ; White color
+    xor cx, cx
+    xor dx, dx
+    mov cx, [key_code_al]
+    mov dx, [key_code_ah]
+    int 0x10
+
+
     
     call .update_location
-    ; in al, 0x60  ; Read keyboard scancode/
-    ; mov cl, al ; trying to detect keyboard input
-    ; mov cx, ax ; trying to detect keyboard input
+
+    call .numpad_navigate
 
     call .draw_current_location
 
+    ; call .write_chars
+
+    call .mode_13h_pixel_draw
+
+    call .write_press_key_code_char
+
     jmp .done
 
+
+    .key_released:
+    sub BYTE [key_code], 0x80 ; get the key release value by subtracting release-flag
+    call .write_release_key_code_char
+    
+
+.done:
+    mov al, 0x20
+    out 0x20, al  ; Send EOI to PIC
+    popa
+    iret ; interrupt - meaning : 2024-10-31
+
+; Draw a pixel at (x, y) with color
+; mode h13 is set at the beginning of the program
+.mode_13h_pixel_draw:
+    mov ax,0a000h
+    mov es,ax
+    mov ax,20    ; y = 20
+    mov bx,20
+    shl ax,8
+    shl bx,6
+    add ax,bx
+    add ax,30    ; x = 30
+    mov di,ax
+    mov al,2    ; color = 2 = green
+    mov es:[di],al
+    ret
+
+
+
+; Write some chars using AH=09h 
+.write_release_key_code_char:
+    ; Set cursor position
+    ; AH=02h 	BH = Page Number, DH = Row, DL = Column
+    mov ah, 0x02
+    mov bh, 1
+    mov dh, 6
+    mov dl, 0
+    int 0x10
+
+    mov ah, 0x09
+    mov al, [key_code]
+    mov bh, 1    ; page?
+    mov bl, 0x06    ; color
+    mov cx, 1      ; # times to write
+    int 0x10        ; Call BIOS video interrupt
+    ret
+
+
+; Write some chars using AH=09h 
+.write_press_key_code_char:
+    ; AH=02h 	BH = Page Number, DH = Row, DL = Column
+    mov ah, 0x02
+    mov bh, 1
+    mov dh, 10
+    mov dl, 0
+    int 0x10
+
+    mov ah, 0x09
+    ; mov al, 'A'   ' write char directly
+    mov al, [key_code]
+    mov bh, 1    ; page?
+    mov bl, 0x06    ; color
+    ; mov cx, 10      ; # times to write
+    mov cx, 1      ; # times to write
+    int 0x10        ; Call BIOS video interrupt
+    ret
+
+
+
+; .is_pressing:
+;     mov ah, 0x0C  ; BIOS video function: write pixel
+;     ; mov al, 0x0A  ; White color
+;     ; xor cx, cx
+;     ; xor dx, dx
+;     mov WORD cx, [x]
+;     mov WORD dx, [y]
+;     ; mov dx, y
+;     int 0x10
+
+.draw_tests:
+; 2024-10-31 : six lines added to add two new pixels!
+    mov cx, 2     ; X position for second pixel
+    mov dx, 2     ; Y position for second pixel
+    int 0x10
+    mov cx, 3     ; X position for second pixel
+    mov dx, 3     ; Y position for second pixel
+    int 0x10
+
+
+    mov cx, 3     ; X position for second pixel
+    mov dx, 3     ; Y position for second pixel
+    int 0x10
+
+    ; 2024-10-31 : testing array
+    mov cx, [word_array]     ; array pos. 5
+    mov dx, [word_array]     ; array pos. 5
+    ; mov cx, 10     ; array pos. 5
+    ; mov dx, 10     ; array pos. 5
+    int 0x10
+
+
+
+; Navingating using numpad
+; checking key_code values against tested numpad input value, and change x/y accodingly
+.numpad_navigate:
+    ; xor bx, bx
+    ; xor cx, cx
+    ; xor dx, dx
+    ; make additional draw call based on keyboard input
+    ; mov cx, 10 ; = pixel x location
+
+    ; mov dx, 201
+    cmp WORD [key_code], 72 ; numpad 8 = up
+    je .up
+    cmp WORD [key_code], 75 ; numpad 4 = left
+    je .left
+    cmp WORD [key_code], 76 ; numpad 5 = down
+    je .down
+    cmp WORD [key_code], 77 ; numpad 6 = right
+    je .right
+
+    jmp .not_equal ; no registered key
+
+    .up:
+        mov al, 0x02  ;  green
+        sub DWORD [y], 2
+        jmp .dn
+    .left:
+        mov al, 0x0D  ;  pink
+        sub DWORD [x], 2
+        jmp .dn
+    .down:
+        mov al, 0x01  ;  blue
+        add DWORD [y], 2
+        jmp .dn
+    .right:
+        mov al, 0x0E  ;  yellow
+        add DWORD [x], 2
+        jmp .dn
+
+    .not_equal:
+    mov al, 0x04  ;  color
+
+    .dn
+    ; mov ah, 0x0C  ; BIOS video function: write pixel
+    ; mov al, 0x0F  ; White color
+    ; int 0x10
+
+    ; Trying to guess values
+    ; mov cx, [key_code]
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    ; mov al, 0x0A  ; White color
+    ; xor cx, cx
+    ; xor dx, dx
+    mov WORD cx, [x]
+    mov WORD dx, [y]
+    ; mov dx, y
+    int 0x10
 
 
 .draw_current_location:
@@ -147,11 +342,11 @@ keyboard_handler:
 
 ; Draw large square
 .draw_large_square:
-    mov bh, 0x06    ; coor
-    mov ch, 10      ; Upper left row of square
-    mov cl, 10      ; Upper left column of square
-    mov dh, 20      ; Lower right row of square
-    mov dl, 20      ; Lower right column of square
+    mov bh, 0x06    ; color
+    mov ch, 10      ; Upper left x of square
+    mov cl, 10      ; Upper left y of square
+    mov dh, 20      ; Lower right x of square
+    mov dl, 20      ; Lower right y of square
     int 0x10        ; Call BIOS video interrupt
     ret
 
@@ -160,41 +355,16 @@ keyboard_handler:
 .clear_screen:
     mov ah, 0x06    ; Scroll up function
     mov al, 0       ; Clear entire screen
-    mov bh, 0x00    ; Black background
+    mov bh, 0x08    ; dark gray
     mov ch, 0       ; Upper left row
     mov cl, 0       ; Upper left column
     mov dh, 24      ; Lower right row
     mov dl, 79      ; Lower right column
     int 0x10        ; Call BIOS video interrupt
     ret
-    
-
-.done:
-
-    ; 2024-10-31 : six lines added to add two new pixels!
-    mov cx, 2     ; X position for second pixel
-    mov dx, 2     ; Y position for second pixel
-    int 0x10
-    mov cx, 3     ; X position for second pixel
-    mov dx, 3     ; Y position for second pixel
-    int 0x10
 
 
-    mov cx, 3     ; X position for second pixel
-    mov dx, 3     ; Y position for second pixel
-    int 0x10
 
-    ; 2024-10-31 : testing array
-    mov cx, [word_array]     ; array pos. 5
-    mov dx, [word_array]     ; array pos. 5
-    ; mov cx, 10     ; array pos. 5
-    ; mov dx, 10     ; array pos. 5
-    int 0x10
-    
-    mov al, 0x20
-    out 0x20, al  ; Send EOI to PIC
-    popa
-    iret ; interrupt - meaning : 2024-10-31
 
 
 ; times 510-($-$$) db 0
