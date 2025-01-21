@@ -1,5 +1,7 @@
 # 3DOS
 
-My first operating system that relies not on a terminal or window for user navigation, but on a virtual 3D world.
+Toy operating system in x86 real mode. 
 
+Implements a simple 3D engine.
 
+All code in x86 NASM assembly. 

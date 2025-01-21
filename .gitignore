@@ -1,2 +1,10 @@
 serial.log
+
+draw/draw.bin
 draw/main.bin
+
+draw/draw.elf
+draw/main.elf
+
+draw/draw.o
+draw/main.o

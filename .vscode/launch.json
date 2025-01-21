@@ -5,7 +5,7 @@
             "name": "Debug",
             "type": "gdb",
             "request": "attach",
-            "executable": "draw/main.bin",
+            "executable": "draw/draw.bin",
             "target": "localhost:1234",
             "remote": true,
             "cwd": "${workspaceFolder}",
