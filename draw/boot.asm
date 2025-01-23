@@ -26,10 +26,56 @@ _start:
 %endif
 
 
+; Interrupt Data
+PIT_CONTROL_PORT  equ 0x43
+PIT_CHANNEL_0     equ 0x40
+IRQ0_VECTOR       equ 0x08
+
+old_irq0_offset dw 0x0000
+old_irq0_segment dw 0x0000
+
+
 boot_x dw 0 ; bugs if defined within boot_sector section
+
+tick_count dw 0
+
 
 ; Boot sector - ran out of boot sector so had to move code to second_sector
 boot_sector:
+
+    ; timer interrupt
+    cli
+
+    ; Set up PIT for periodic interrupts
+    mov al, 0x36                ; Control word: Mode 3, Square wave generator
+    out PIT_CONTROL_PORT, al
+    ; mov ax, 1193180        ; Set frequency to 100 Hz (adjust as needed)
+
+    ; minimum : https://en.wikibooks.org/wiki/X86_Assembly/Programmable_Interval_Timer
+    mov ax, 65535 ; ( ~= 1193180 / 18.2)
+    out PIT_CHANNEL_0, al       ; Low byte
+    mov al, ah
+    out PIT_CHANNEL_0, al       ; High byte
+
+
+    ; Set up custom IRQ0 handler
+    ; Save old handler address
+    mov ax, 0x0000
+    mov es, ax                  ; ES points to interrupt vector table
+    mov di, IRQ0_VECTOR * 4
+    mov ax, [es:di]        ; Load offset into AX
+    mov [old_irq0_offset], ax
+    mov ax, [es:di+2]      ; Load segment into AX
+    mov [old_irq0_segment], ax
+
+    ; Set new handler
+    ; cli
+    mov word [es:di], timer_handler   ; Offset of custom handler
+    mov word [es:di+2], cs      ; Segment of this code
+    sti                         ; Re-enable interrupts
+
+
+
     ; Basic setup
     cli
     ; mov ax, 0xFFFF
@@ -96,7 +142,8 @@ boot_sector:
 
     ; jump back into landing buffer
     ; jmp 0x0000:0x7C25
-    jmp 0x0000:0x7C40
+    ; jmp 0x0000:0x7C40
+    jmp 0x0000:0x7C70
 
     ;;
     ;; END - Boot section playground
@@ -108,6 +155,36 @@ boot_sector:
     jmp 0x0000:0x7E00
     ; jmp second_sector    ; Jump to second segment
 
+
+
+
+timer_handler:
+    pusha
+    inc word [tick_count]
+
+    ; Render white pixel
+    ; PROBLEM: LOCKS IN BOOT SECTOR AND BLASTS CPU USAGE!
+    ; mov ax, 0xA000         ; Segment for video memory
+    ; mov es, ax             ; Point ES to video memory
+    ; mov di, [tick_count] ; Offset for pixel at (100, 50)
+    ; ; mov di, 50 * 320 + 100 ; Offset for pixel at (100, 50)
+    ; mov al, 0x0F           ; Pixel color (bright white)
+    ; mov [es:di], al        ; Write pixel color to video memory
+
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x0F  ; White color
+    mov cx, [tick_count]
+    mov dx, 20
+    int 0x10
+    
+
+    ; EOI command making sure proper end of interrupt?
+    mov al, 0x20                ; EOI command
+    out 0x20, al                ; Send to PIC command port (0x20)
+
+    ; End of handler
+    popa                       ; Restore all registers
+    iret                      ; Return from interrupt
 
 
 %ifndef ELF
@@ -182,13 +259,13 @@ d dw 0
 
 ; Set up interrupt descriptor table for timer interrupt
 
-idt: times 256 dq 0  ; Allocate space for 256 IDT entries (8 bytes each)
+; idt: times 256 dq 0  ; Allocate space for 256 IDT entries (8 bytes each)
 
-idt_ptr:
-    dw idt_end - idt - 1  ; Limit (size of IDT - 1)
-    dd idt                ; Base address of IDT
+; idt_ptr:
+;     dw idt_end - idt - 1  ; Limit (size of IDT - 1)
+;     dd idt                ; Base address of IDT
 
-idt_end:
+; idt_end:
 
 
 
@@ -196,38 +273,38 @@ idt_end:
 section .text
 
 
-start:
-    cli                  ; Disable interrupts
+; start:
+;     cli                  ; Disable interrupts
 
 
-    ; Initialize IDT entry for IRQ0 (interrupt 0x08)
-    ; Assuming code segment selector is 0x08
-    mov eax, timer_interrupt
-    mov word [idt + 8*0x08], ax
-    mov word [idt + 8*0x08 + 6], 0x08
-    mov byte [idt + 8*0x08 + 5], 0x8E  ; Present, DPL=0, 32-bit interrupt gate
-    shr eax, 16
-    mov word [idt + 8*0x08 + 2], ax
+;     ; Initialize IDT entry for IRQ0 (interrupt 0x08)
+;     ; Assuming code segment selector is 0x08
+;     mov eax, timer_interrupt
+;     mov word [idt + 8*0x08], ax
+;     mov word [idt + 8*0x08 + 6], 0x08
+;     mov byte [idt + 8*0x08 + 5], 0x8E  ; Present, DPL=0, 32-bit interrupt gate
+;     shr eax, 16
+;     mov word [idt + 8*0x08 + 2], ax
 
-;     ; Load IDT
-    ; BREAKS THE PROGRAM!
-    ; Constantly resets the VM/program
-    ; lidt [idt_ptr] 
+; ;     ; Load IDT
+;     ; BREAKS THE PROGRAM!
+;     ; Constantly resets the VM/program
+;     ; lidt [idt_ptr] 
 
-;     ; Set PIT to Channel 0, LSB+MSB, Mode 3
-    mov al, 0x36
-    out 0x43, al
+; ;     ; Set PIT to Channel 0, LSB+MSB, Mode 3
+;     mov al, 0x36
+;     out 0x43, al
 
-;     ; Load divisor for 1 Hz (PIT clock ~1.19318MHz / 1)
-    mov ax, 1193180
-    out 0x40, al        ; Low byte
-    mov al, ah
-    out 0x40, al        ; High byte
+; ;     ; Load divisor for 1 Hz (PIT clock ~1.19318MHz / 1)
+;     mov ax, 1193180
+;     out 0x40, al        ; Low byte
+;     mov al, ah
+;     out 0x40, al        ; High byte
 
-    sti                 ; Enable interrupts
+;     sti                 ; Enable interrupts
 
-    ; Or keyboard interrupts won't work properly
-    xor ax, ax
+;     ; Or keyboard interrupts won't work properly
+;     xor ax, ax
 
 
 
