@@ -1,0 +1,1 @@
+nasm -f bin -o timer_interrupt.bin timer_interrupt.asm

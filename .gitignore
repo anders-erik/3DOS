@@ -10,3 +10,6 @@ draw/draw.o
 draw/main.o
 
 draw/draw.ndisasm
+
+
+interrupt/timer_interrupt.bin
