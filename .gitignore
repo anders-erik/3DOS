@@ -8,3 +8,5 @@ draw/main.elf
 
 draw/draw.o
 draw/main.o
+
+draw/draw.ndisasm

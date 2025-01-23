@@ -26,11 +26,14 @@ _start:
 %endif
 
 
+boot_x dw 0 ; bugs if defined within boot_sector section
 
 ; Boot sector - ran out of boot sector so had to move code to second_sector
 boot_sector:
     ; Basic setup
     cli
+    ; mov ax, 0xFFFF
+    ; mov cs, ax ; Why doesn't this work? I thought that cs=0 by default, so this should change nothing?
     mov ax, 0x0000
     mov ds, ax
     mov es, ax
@@ -48,7 +51,63 @@ boot_sector:
     mov bx, second_sector   ; Where to load the sector
     int 0x13
     
-    jmp second_sector    ; Jump to second stage
+
+
+    ;;
+    ;; START - Boot section playground
+    ;;
+
+.mode_13h_and_clear:
+    mov ax, 0x13
+    int 0x10
+
+    mov ah, 0x06    ; Scroll up function
+    mov al, 0       ; Clear entire screen
+    mov bh, 0x0C    ; Light Red 
+    mov ch, 0       ; Upper left row
+    mov cl, 0       ; Upper left column
+    mov dh, 24      ; Lower right row
+    mov dl, 79      ; Lower right column
+    int 0x10        ; Call BIOS video interrupt
+
+    ; Landing buffer
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+
+
+    ; draw pixel
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x0F  ; White color
+    xor cx, cx
+    xor dx, dx
+    inc word [boot_x]
+    cmp word [boot_x], 6400
+    jge .load_second_sector
+    mov cx, [boot_x]  ; x
+    mov dx, 10  ; y
+    int 0x10
+
+    ; jump back into landing buffer
+    ; jmp 0x0000:0x7C25
+    jmp 0x0000:0x7C40
+
+    ;;
+    ;; END - Boot section playground
+    ;;
+
+    .load_second_sector:
+    
+    ; jump to segment 2
+    jmp 0x0000:0x7E00
+    ; jmp second_sector    ; Jump to second segment
+
 
 
 %ifndef ELF
@@ -63,7 +122,7 @@ dw 0xaa55
 
 ; --------------------------------------------------------
 
-;  SECOND SECTOR
+;  SECOND SECTOR @ 0x7e00 (0x7c00 + 0xFF boot sector size)
 
 second_sector:
 
@@ -76,6 +135,8 @@ cli
 mov word [0x24], keyboard_handler
 mov word [0x26], 0
 sti
+
+section .data
 
 ; ; NEEDED TO DEFINE THE ARRAY HERE WITHOUT A SECTION-LABEL TO BE ABLE TO USE THE ARRAY!
 word_array: dw 10, 20, 30, 40, 50 ; An array of 5 bytes
@@ -116,6 +177,8 @@ a dw 0
 s dw 0
 d dw 0
 
+
+section .text
 
 ; Main loop
 main_loop:
@@ -434,3 +497,10 @@ times 1024 db 0
 
 ; times 510-($-$$) db 0   ; Fill the rest of the boot sector with zeros
 ; dw 0xAA55               ; Boot signature
+
+
+; [BITS 16]
+; absolute 0x1000  ; Define absolute addressing from 0x1000
+; absolute_label:
+
+;     jmp 0x0000:0x7C00 ; Infinite loop

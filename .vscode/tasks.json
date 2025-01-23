@@ -170,6 +170,32 @@
                     "endsPattern": "^$"
                 }
             }
-        }
+        },
+        {
+            "type": "shell",
+            "label": "Draw - Disassemble Full",
+            "command": "ndisasm -b 16 ./draw/draw.bin > ./draw/draw.ndisasm",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+        },
+        {
+            "type": "shell",
+            "label": "Draw - Disassemble Boot section",
+            "command": "ndisasm -b 16 ./draw/draw.bin | head -50",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+        },
+
+        {
+            "type": "shell",
+            "label": "Draw - Disassemble from 0x7E00",
+            "command": "ndisasm -b 16 ./draw/draw.bin | head -500 | tail -n +230",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+        },
+        
     ]
 }
