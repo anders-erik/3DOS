@@ -14,7 +14,7 @@
 ; DISASSEMBLE
 ; objdump -b binary -m i386 -D draw.bin
 
-; %include "./draw/lib.asm"
+
 
 %ifdef ELF
 section .text
@@ -25,60 +25,20 @@ _start:
 [org 0x7c00]
 %endif
 
-
-; Interrupt Data
-PIT_CONTROL_PORT  equ 0x43
-PIT_CHANNEL_0     equ 0x40
-IRQ0_VECTOR       equ 0x08
-
-old_irq0_offset dw 0x0000
-old_irq0_segment dw 0x0000
-
-
+; variable for boot sector playground
 boot_x dw 0 ; bugs if defined within boot_sector section
 
-tick_count dw 0
 
 
 ; Boot sector - ran out of boot sector so had to move code to second_sector
 boot_sector:
 
-    ; timer interrupt
-    cli
-
-    ; Set up PIT for periodic interrupts
-    mov al, 0x36                ; Control word: Mode 3, Square wave generator
-    out PIT_CONTROL_PORT, al
-    ; mov ax, 1193180        ; Set frequency to 100 Hz (adjust as needed)
-
-    ; minimum : https://en.wikibooks.org/wiki/X86_Assembly/Programmable_Interval_Timer
-    mov ax, 65535 ; ( ~= 1193180 / 18.2)
-    out PIT_CHANNEL_0, al       ; Low byte
-    mov al, ah
-    out PIT_CHANNEL_0, al       ; High byte
-
-
-    ; Set up custom IRQ0 handler
-    ; Save old handler address
-    mov ax, 0x0000
-    mov es, ax                  ; ES points to interrupt vector table
-    mov di, IRQ0_VECTOR * 4
-    mov ax, [es:di]        ; Load offset into AX
-    mov [old_irq0_offset], ax
-    mov ax, [es:di+2]      ; Load segment into AX
-    mov [old_irq0_segment], ax
-
-    ; Set new handler
-    ; cli
-    mov word [es:di], timer_handler   ; Offset of custom handler
-    mov word [es:di+2], cs      ; Segment of this code
-    sti                         ; Re-enable interrupts
-
+   
 
 
     ; Basic setup
     cli
-    ; mov ax, 0xFFFF
+    ; mov ax, 0x0000
     ; mov cs, ax ; Why doesn't this work? I thought that cs=0 by default, so this should change nothing?
     mov ax, 0x0000
     mov ds, ax
@@ -89,7 +49,7 @@ boot_sector:
 
     ; Load second stage
     mov ah, 0x02            ; BIOS read sector function
-    mov al, 1               ; Number of sectors to read
+    mov al, 2               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL TO 
     mov ch, 0               ; Cylinder number
     mov cl, 2               ; Sector number (1 is boot sector)
     mov dh, 0               ; Head number
@@ -134,7 +94,7 @@ boot_sector:
     xor cx, cx
     xor dx, dx
     inc word [boot_x]
-    cmp word [boot_x], 6400
+    cmp word [boot_x], 6400 ; number of iterations and pixels draw until progressing past boot sector
     jge .load_second_sector
     mov cx, [boot_x]  ; x
     mov dx, 10  ; y
@@ -142,8 +102,8 @@ boot_sector:
 
     ; jump back into landing buffer
     ; jmp 0x0000:0x7C25
-    ; jmp 0x0000:0x7C40
-    jmp 0x0000:0x7C70
+    jmp 0x0000:0x7C40
+    ; jmp 0x0000:0x7C70
 
     ;;
     ;; END - Boot section playground
@@ -153,38 +113,8 @@ boot_sector:
     
     ; jump to segment 2
     jmp 0x0000:0x7E00
-    ; jmp second_sector    ; Jump to second segment
+    ; jmp second_sector
 
-
-
-
-timer_handler:
-    pusha
-    inc word [tick_count]
-
-    ; Render white pixel
-    ; PROBLEM: LOCKS IN BOOT SECTOR AND BLASTS CPU USAGE!
-    ; mov ax, 0xA000         ; Segment for video memory
-    ; mov es, ax             ; Point ES to video memory
-    ; mov di, [tick_count] ; Offset for pixel at (100, 50)
-    ; ; mov di, 50 * 320 + 100 ; Offset for pixel at (100, 50)
-    ; mov al, 0x0F           ; Pixel color (bright white)
-    ; mov [es:di], al        ; Write pixel color to video memory
-
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x0F  ; White color
-    mov cx, [tick_count]
-    mov dx, 20
-    int 0x10
-    
-
-    ; EOI command making sure proper end of interrupt?
-    mov al, 0x20                ; EOI command
-    out 0x20, al                ; Send to PIC command port (0x20)
-
-    ; End of handler
-    popa                       ; Restore all registers
-    iret                      ; Return from interrupt
 
 
 %ifndef ELF
@@ -197,11 +127,32 @@ dw 0xaa55
 
 
 
+
+
+
+
+
 ; --------------------------------------------------------
 
 ;  SECOND SECTOR @ 0x7e00 (0x7c00 + 0xFF boot sector size)
 
 second_sector:
+
+
+; Interrupt Data
+PIT_CONTROL_PORT  equ 0x43
+PIT_CHANNEL_0     equ 0x40
+IRQ0_VECTOR       equ 0x08
+
+; used for restoring irq0 state -- implementation in 'timer_interrupt.asm'
+old_irq0_offset dw 0x0000
+old_irq0_segment dw 0x0000
+
+; timing interrupt counter
+tick_count dw 0
+
+
+
 
 ; Set up video mode (320x200, 256 colors)
 mov ax, 0x13
@@ -214,6 +165,7 @@ mov word [0x26], 0
 sti
 
 section .data
+
 
 ; ; NEEDED TO DEFINE THE ARRAY HERE WITHOUT A SECTION-LABEL TO BE ABLE TO USE THE ARRAY!
 word_array: dw 10, 20, 30, 40, 50 ; An array of 5 bytes
@@ -249,23 +201,14 @@ x dw 0
 y dw 0
 mov WORD [y], 0
 mov WORD [x], 0
-w dw 0
-a dw 0
-s dw 0
-d dw 0
+
+; key-flags indicating that the key is currently pressed
+w_pressed dw 0
+a_pressed dw 0
+s_pressed dw 0
+d_pressed dw 0
 
 
-
-
-; Set up interrupt descriptor table for timer interrupt
-
-; idt: times 256 dq 0  ; Allocate space for 256 IDT entries (8 bytes each)
-
-; idt_ptr:
-;     dw idt_end - idt - 1  ; Limit (size of IDT - 1)
-;     dd idt                ; Base address of IDT
-
-; idt_end:
 
 
 
@@ -273,38 +216,38 @@ d dw 0
 section .text
 
 
-; start:
-;     cli                  ; Disable interrupts
+timer_setup:
+ ; timer interrupt
+    cli
+
+    ; Set up PIT for periodic interrupts
+    mov al, 0x36                ; Control word: Mode 3, Square wave generator
+    out PIT_CONTROL_PORT, al
+    ; mov ax, 1193180        ; Set frequency to 100 Hz (adjust as needed)
+
+    ; minimum : https://en.wikibooks.org/wiki/X86_Assembly/Programmable_Interval_Timer
+    mov ax, 65535 ; ( ~= 1193180 / 18.2)
+    out PIT_CHANNEL_0, al       ; Low byte
+    mov al, ah
+    out PIT_CHANNEL_0, al       ; High byte
 
 
-;     ; Initialize IDT entry for IRQ0 (interrupt 0x08)
-;     ; Assuming code segment selector is 0x08
-;     mov eax, timer_interrupt
-;     mov word [idt + 8*0x08], ax
-;     mov word [idt + 8*0x08 + 6], 0x08
-;     mov byte [idt + 8*0x08 + 5], 0x8E  ; Present, DPL=0, 32-bit interrupt gate
-;     shr eax, 16
-;     mov word [idt + 8*0x08 + 2], ax
+    ; Set up custom IRQ0 handler
+    ; Save old handler address
+    mov ax, 0x0000
+    mov es, ax                  ; ES points to interrupt vector table
+    mov di, IRQ0_VECTOR * 4
+    mov ax, [es:di]        ; Load offset into AX
+    mov [old_irq0_offset], ax
+    mov ax, [es:di+2]      ; Load segment into AX
+    mov [old_irq0_segment], ax
 
-; ;     ; Load IDT
-;     ; BREAKS THE PROGRAM!
-;     ; Constantly resets the VM/program
-;     ; lidt [idt_ptr] 
+    ; Set new handler
+    ; cli
+    mov word [es:di], timer_handler   ; Offset of custom handler
+    mov word [es:di+2], cs      ; Segment of this code
+    sti                         ; Re-enable interrupts
 
-; ;     ; Set PIT to Channel 0, LSB+MSB, Mode 3
-;     mov al, 0x36
-;     out 0x43, al
-
-; ;     ; Load divisor for 1 Hz (PIT clock ~1.19318MHz / 1)
-;     mov ax, 1193180
-;     out 0x40, al        ; Low byte
-;     mov al, ah
-;     out 0x40, al        ; High byte
-
-;     sti                 ; Enable interrupts
-
-;     ; Or keyboard interrupts won't work properly
-;     xor ax, ax
 
 
 
@@ -317,12 +260,48 @@ main_loop:
 
 
 
-; Timer interrupt handler
-timer_interrupt:
+
+timer_handler:
     pusha
-    inc word [x]
-    popa
-    iret  ; Return from interrupt
+    inc word [tick_count]
+
+    ; PROBLEM: LOCKS IN BOOT SECTOR AND BLASTS CPU USAGE!
+    ; Render white pixel
+    ; mov ax, 0xA000         ; Segment for video memory
+    ; mov es, ax             ; Point ES to video memory
+    ; mov di, [tick_count] ; Offset for pixel at (100, 50)
+    ; ; mov di, 50 * 320 + 100 ; Offset for pixel at (100, 50)
+    ; mov al, 0x0F           ; Pixel color (bright white)
+    ; mov [es:di], al        ; Write pixel color to video memory
+
+    ; cmp WORD [w_pressed], 1
+    ; je .w_not_pressed
+    ; ; mov ah, 0x0C  ; BIOS video function: write pixel
+    ; ; mov al, 0x01  ; color -- Blue 
+    ; xor cx, cx
+    ; xor dx, dx
+    ; ; mov cx, 60
+    ; ; mov dx, 60
+
+    ; ; int 0x10
+    ; .w_not_pressed:
+
+
+    ; make sure this label is reachable
+    ; Renders a pixel at [tick_count]
+    call reachable
+    call extern_pixel
+    ; call write_oooo
+
+    
+
+    ; EOI command making sure proper end of interrupt?
+    mov al, 0x20                ; EOI command
+    out 0x20, al                ; Send to PIC command port (0x20)
+
+    ; End of handler
+    popa                       ; Restore all registers
+    iret                      ; Return from interrupt
 
 
 
@@ -347,25 +326,27 @@ keyboard_handler:
 
     .key_pressed:
     call .write_press_key_code_char
+    call .wasd_update
     jmp .key_flag_done
 
     .key_released:
     sub BYTE [key_code], 0x80 ; get the key release value by subtracting release-flag
+    ; call .wasd_update
     call .write_release_key_code_char
     
     .key_flag_done:
     
 
+    call extern_pixel
 
     ; UPDATE
     call update
-
 
     ;  DRAW !
     call draw 
 
 
-    call .numpad_navigate
+    ; call .numpad_navigate
 
 
 .keyboard_handler_done:
@@ -373,6 +354,92 @@ keyboard_handler:
     out 0x20, al  ; Send EOI to PIC
     popa
     iret ; interrupt - meaning : 2024-10-31
+
+
+
+
+.wasd_update:
+    ; xor bx, bx
+    ; xor cx, cx
+    ; xor dx, dx
+    ; make additional draw call based on keyboard input
+    ; mov cx, 10 ; = pixel x location
+    ; mov ax 
+    ; pusha 
+    ; mov [current_key_code], [key_code]
+
+    ; mov cs, 0
+    
+    .w:
+    cmp WORD [key_code_al], 17 ; w = up
+    jne .a
+
+    mov WORD [w_pressed], 1
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x01  ; color -- Blue 
+    ; xor cx, cx
+    ; xor dx, dx
+    mov cx, 60
+    mov dx, 62
+
+    int 0x10
+
+    jmp .wasd_done
+
+    .a:
+    cmp WORD [key_code_al], 30 ; a = left
+    jne .s
+
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x0F  ; color  
+    ; xor cx, cx
+    ; xor dx, dx
+    mov cx, 57
+    mov dx, 65
+
+    int 0x10
+
+    jmp .wasd_done
+
+    .s:
+ 
+    ; pusha
+    cmp WORD [key_code_al], 31 ; s = down
+    jne .d
+
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x06  ; color
+    xor cx, cx
+    xor dx, dx
+    mov cx, 60
+    mov dx, 65
+
+    int 0x10
+
+    jmp .wasd_done
+    ; popa
+
+
+    .d:
+    cmp WORD [key_code_al], 32 ; d = right
+    jne .next
+
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x03  ; color
+    xor cx, cx
+    xor dx, dx
+    mov cx, 63
+    mov dx, 65
+
+    int 0x10
+
+    .next
+
+    .wasd_done:
+
+    ; popa
+    ret
+    ; mov ax, 2
 
 
 
@@ -417,7 +484,7 @@ keyboard_handler:
     .not_equal:
     mov al, 0x04  ;  color
 
-    .dn
+    .dn:
     ; mov ah, 0x0C  ; BIOS video function: write pixel
     ; mov al, 0x0F  ; White color
     ; int 0x10
@@ -498,6 +565,7 @@ ret
 
 ; Clear the screen
 .clear_screen:
+    pusha
     mov ah, 0x06    ; Scroll up function
     mov al, 0       ; Clear entire screen
     mov bh, 0x08    ; dark gray
@@ -506,6 +574,7 @@ ret
     mov dh, 24      ; Lower right row
     mov dl, 79      ; Lower right column
     int 0x10        ; Call BIOS video interrupt
+    popa
     ret
 
 
@@ -604,10 +673,25 @@ update:
 ret
 
 
+reachable:
+    pusha
+    mov ah, 0x0C  ; BIOS video function: write pixel
+    mov al, 0x0F  ; White color
+    mov cx, [tick_count]
+    mov dx, 20
+    int 0x10
+    popa
+    ret
+
+
+; I tested it and it worked on the first try
+; Probably simply copies the contents from the external file?
+%include "./draw/lib.asm"
 
 
 ; Reserve space for second stage
-times 1024 db 0
+; times 1024 db 0
+times 200 db 0
 
 
 ; GPT - didn't work!

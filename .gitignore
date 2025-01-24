@@ -1,3 +1,5 @@
+build/
+
 serial.log
 
 draw/draw.bin
@@ -11,5 +13,6 @@ draw/main.o
 
 draw/draw.ndisasm
 
+draw/lib.o
 
 interrupt/timer_interrupt.bin
