@@ -196,19 +196,22 @@ key_code dw 0
 key_code_ah dw 0
 key_code_al dw 0
 ; mov WORD [key_code_ah], 0
+
+
+
+; key-flags indicating that the key is currently pressed
+press_event dw 0 ; 1 = pressed, 0 = released
+w_pressed dw 0
+mov WORD [w_pressed], 0x0000
+a_pressed dw 0
+s_pressed dw 0
+d_pressed dw 0
+
 ; player location
 x dw 0
 y dw 0
 mov WORD [y], 0
 mov WORD [x], 0
-
-; key-flags indicating that the key is currently pressed
-w_pressed dw 0
-a_pressed dw 0
-s_pressed dw 0
-d_pressed dw 0
-
-
 
 
 
@@ -265,6 +268,11 @@ timer_handler:
     pusha
     inc word [tick_count]
 
+    call render
+
+     
+
+
     ; PROBLEM: LOCKS IN BOOT SECTOR AND BLASTS CPU USAGE!
     ; Render white pixel
     ; mov ax, 0xA000         ; Segment for video memory
@@ -289,8 +297,8 @@ timer_handler:
 
     ; make sure this label is reachable
     ; Renders a pixel at [tick_count]
-    call reachable
-    call extern_pixel
+    ; call reachable
+    ; call extern_pixels
     ; call write_oooo
 
     
@@ -318,35 +326,37 @@ keyboard_handler:
     mov [key_code_ah], ah
     mov [key_code_al], al
 
-    call draw.clear_screen
+    ; call draw.clear_screen
+    ; call render
 
-    ; Read keyboard status & prevent double-handle when pressing key. The follwoing lines prevents handling of key release.
-    test al, 0x80      ; Test if this is a key release (bit 7 set)
-    jnz .key_released          ; If it's a release, skip drawing
+    ; DETECT KEY PRESS OR RELEASE
+    test al, 0x80      ; highest bit is press/release flag
+    jnz .key_released  ; Bit was set = release
 
     .key_pressed:
-    call .write_press_key_code_char
-    call .wasd_update
+    mov WORD [press_event], 0x1
+    ; call .write_press_key_code_char
+    call wasd_update
     jmp .key_flag_done
 
     .key_released:
+    mov WORD [press_event], 0x0
     sub BYTE [key_code], 0x80 ; get the key release value by subtracting release-flag
-    ; call .wasd_update
-    call .write_release_key_code_char
+    sub BYTE [key_code_al], 0x80 ; get the key release value by subtracting release-flag
+    call wasd_update
+    ; call .write_release_key_code_char
     
     .key_flag_done:
     
 
-    call extern_pixel
+    
 
     ; UPDATE
     call update
 
-    ;  DRAW !
-    call draw 
 
 
-    ; call .numpad_navigate
+    ; call numpad_navigate
 
 
 .keyboard_handler_done:
@@ -358,94 +368,92 @@ keyboard_handler:
 
 
 
-.wasd_update:
-    ; xor bx, bx
-    ; xor cx, cx
-    ; xor dx, dx
-    ; make additional draw call based on keyboard input
-    ; mov cx, 10 ; = pixel x location
-    ; mov ax 
-    ; pusha 
-    ; mov [current_key_code], [key_code]
+; Toggle key states
+wasd_update:
 
-    ; mov cs, 0
-    
-    .w:
+
+; SWITCH STATEMENT
+
+.w:
     cmp WORD [key_code_al], 17 ; w = up
     jne .a
 
+    cmp WORD [press_event], 1 ; is pressing
+    je .w_press
+
+.w_release
+    mov WORD [w_pressed], 0x0000
+    jmp .wasd_done
+    
+.w_press
     mov WORD [w_pressed], 1
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x01  ; color -- Blue 
-    ; xor cx, cx
-    ; xor dx, dx
-    mov cx, 60
-    mov dx, 62
-
-    int 0x10
-
     jmp .wasd_done
 
-    .a:
+
+
+.a:
     cmp WORD [key_code_al], 30 ; a = left
     jne .s
 
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x0F  ; color  
-    ; xor cx, cx
-    ; xor dx, dx
-    mov cx, 57
-    mov dx, 65
 
-    int 0x10
+    cmp WORD [press_event], 1 ; is pressing
+    je .a_press
 
+    .a_release
+    mov WORD [a_pressed], 0x0000
+    jmp .wasd_done
+    
+    .a_press
+    mov WORD [a_pressed], 1
     jmp .wasd_done
 
-    .s:
- 
-    ; pusha
+
+
+
+.s:
     cmp WORD [key_code_al], 31 ; s = down
     jne .d
 
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x06  ; color
-    xor cx, cx
-    xor dx, dx
-    mov cx, 60
-    mov dx, 65
+    cmp WORD [press_event], 1 ; is pressing
+    je .s_press
 
-    int 0x10
-
+    .s_release
+    mov WORD [s_pressed], 0x0000
     jmp .wasd_done
-    ; popa
+    
+    .s_press
+    mov WORD [s_pressed], 1
+    jmp .wasd_done
 
 
-    .d:
+
+.d:
     cmp WORD [key_code_al], 32 ; d = right
     jne .next
 
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x03  ; color
-    xor cx, cx
-    xor dx, dx
-    mov cx, 63
-    mov dx, 65
 
-    int 0x10
+    cmp WORD [press_event], 1 ; is pressing
+    je .d_press
+
+    .d_release
+    mov WORD [d_pressed], 0x0000
+    jmp .wasd_done
+    
+    .d_press
+    mov WORD [d_pressed], 1
+    jmp .wasd_done
 
     .next
 
-    .wasd_done:
+.wasd_done:
 
-    ; popa
     ret
-    ; mov ax, 2
 
 
 
 ; Navingating using numpad
 ; checking key_code values against tested numpad input value, and change x/y accodingly
-.numpad_navigate:
+numpad_navigate:
     ; xor bx, bx
     ; xor cx, cx
     ; xor dx, dx
@@ -544,102 +552,21 @@ keyboard_handler:
 
 
 
-draw:
-
-; call .clear_screen
-
-call .draw_current_location
-
-; call .write_chars
-
-call .mode_13h_pixel_draw
-
-
-call .draw_large_square
-
-call .draw_keycode_coords
-
-ret
-
-
-
-; Clear the screen
-.clear_screen:
-    pusha
-    mov ah, 0x06    ; Scroll up function
-    mov al, 0       ; Clear entire screen
-    mov bh, 0x08    ; dark gray
-    mov ch, 0       ; Upper left row
-    mov cl, 0       ; Upper left column
-    mov dh, 24      ; Lower right row
-    mov dl, 79      ; Lower right column
-    int 0x10        ; Call BIOS video interrupt
-    popa
-    ret
-
-
-;  try to understand the key_code values
-; Draw al as x, and ah as y
-.draw_keycode_coords:
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x0A  ; White color
-    xor cx, cx
-    xor dx, dx
-    mov cx, [key_code_al]
-    mov dx, [key_code_ah]
-    int 0x10
-
-
-; Draw a pixel at (x, y) with color
-; mode h13 is set at the beginning of the program
-.mode_13h_pixel_draw:
-    mov ax,0a000h
-    mov es,ax
-    mov ax,20    ; y = 20
-    mov bx,20
-    shl ax,8
-    shl bx,6
-    add ax,bx
-    add ax,30    ; x = 30
-    mov di,ax
-    mov al,2    ; color = 2 = green
-    mov es:[di],al
-    ret
-
-
-
-.draw_tests:
-; 2024-10-31 : six lines added to add two new pixels!
-    mov cx, 2     ; X position for second pixel
-    mov dx, 2     ; Y position for second pixel
-    int 0x10
-    mov cx, 3     ; X position for second pixel
-    mov dx, 3     ; Y position for second pixel
-    int 0x10
-
-
-    mov cx, 3     ; X position for second pixel
-    mov dx, 3     ; Y position for second pixel
-    int 0x10
-
-    ; 2024-10-31 : testing array
-    mov cx, [word_array]     ; array pos. 5
-    mov dx, [word_array]     ; array pos. 5
-    ; mov cx, 10     ; array pos. 5
-    ; mov dx, 10     ; array pos. 5
-    int 0x10
 
 
 
 
-; Draw the 'current' pixel 
-.draw_current_location:
-    mov ah, 0x0C  ; BIOS video function: write pixel
-    mov al, 0x0F  ; White color
-    mov cx, [pixel_x]
-    mov dx, [pixel_y]
-    int 0x10
-    ret
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -684,9 +611,8 @@ reachable:
     ret
 
 
-; I tested it and it worked on the first try
-; Probably simply copies the contents from the external file?
-%include "./draw/lib.asm"
+; C-like includes
+%include "./draw/render.asm"
 
 
 ; Reserve space for second stage
