@@ -24,12 +24,19 @@ draw_wasd_input:
     cmp WORD [w_pressed], 1
     jne .a
 
-    .w_draw_press:
+    ; .w_draw_press:
+    ; mov ax, 20
+    ; mov bx, 162
+    ; mov si, 0x02
+    ; call pixel_x_cx_y_dx_c_si
+    ; jmp .a
+
     mov ax, 20
-    mov bx, 162
-    mov si, 0x01
-    call pixel_x_cx_y_dx_c_si
-    jmp .a
+    mov bx, 160
+    mov cx, 5 ; width
+    mov dx, 5 ; height
+    mov si, 0x02
+    call draw_square
 
 
 
@@ -37,23 +44,35 @@ draw_wasd_input:
     cmp WORD [a_pressed], 1 ; a = left
     jne .s
 
-    mov ax, 17
-    mov bx, 165
-    mov si, 0x04
-    call pixel_x_cx_y_dx_c_si
+    ; mov ax, 17
+    ; mov bx, 165
+    ; mov si, 0x04
+    ; call pixel_x_cx_y_dx_c_si
     ; jmp .wasd_done
-
+    mov ax, 15
+    mov bx, 165
+    mov cx, 5 ; width
+    mov dx, 5 ; height
+    mov si, 0x04
+    call draw_square
 
 
     .s:
     cmp WORD [s_pressed], 1 ; s = down
     jne .d
 
+    ; mov ax, 20
+    ; mov bx, 165
+    ; mov si, 0x0F
+    ; call pixel_x_cx_y_dx_c_si
+    ; jmp .wasd_done
+
     mov ax, 20
     mov bx, 165
+    mov cx, 5 ; width
+    mov dx, 5 ; height
     mov si, 0x0F
-    call pixel_x_cx_y_dx_c_si
-    ; jmp .wasd_done
+    call draw_square
 
 
 
@@ -61,12 +80,23 @@ draw_wasd_input:
     cmp WORD [d_pressed], 1 ; d = right
     jne .next
 
-    mov ax, 23
+    ; mov ax, 23
+    ; mov bx, 165
+    ; mov si, 0x03
+    ; call pixel_x_cx_y_dx_c_si
+
+    ; SQUARE TEST
+    mov ax, 25
     mov bx, 165
+    mov cx, 5 ; width
+    mov dx, 5 ; height
     mov si, 0x03
-    call pixel_x_cx_y_dx_c_si
+    call draw_square
 
     .next
+
+    
+
 
     .wasd_done:
 
@@ -203,6 +233,68 @@ write_oooo:
     mov cx, 1      ; # times to write
     int 0x10        ; Call BIOS video interrupt
     ret
+
+
+
+
+
+; draw square 'local' variables
+; I don't have a stack yet...
+sq_hh dw 0
+sq_ww dw 0
+sq_xx dw 0
+sq_yy dw 0
+sq_cc dw 0
+; Draw a square at (ax, bx), with (h, w)=(cx, dx), and color=si
+draw_square:
+    ; 'push' arguments
+    mov [sq_xx], ax
+    mov [sq_yy], bx
+    mov [sq_ww], cx
+    mov [sq_hh], dx
+    mov [sq_cc], si
+
+; video segment
+    mov ax, 0xA000
+    mov es, ax
+
+
+; row-index
+    mov cx, 0
+.L_ROW:
+    ; Set di to point to leftmost in current row
+    mov di, [sq_yy]
+    add di, cx
+    imul di, 320 ; y
+    add di, [sq_xx] ; x
+    
+
+; column-index
+    mov dx, 0
+.L_COLUMN:
+
+    ; DRAW PIXEL
+    mov al, [sq_cc] ; color
+    mov [es:di], al ; location
+
+    ; next pixel location -- x-direction
+    ; increment AFTER draw to properly draw with zero index
+    inc di
+
+    ; increment col-index until height is reached
+    inc dx
+    cmp dx, WORD [sq_ww]
+    jl .L_COLUMN
+
+.L_COLUMN_END:  
+
+    ; keep incrementing row-index until height is reached
+    inc cx
+    cmp cx, WORD [sq_hh]
+    jl .L_ROW 
+
+    ret
+
 
 
 
