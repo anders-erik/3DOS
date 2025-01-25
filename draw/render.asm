@@ -18,6 +18,21 @@ render:
     call extern_pixels
     call simple_pixel
 
+    ; draw player position
+    .draw_player_position:
+    push 0x01   ; color
+    push word [player_position_y]    ; y
+    push word [player_position_x]    ; x
+    call draw_2x2
+    add sp, 6
+
+    push 0x00   ; color
+    push  10    ; y
+    push  10    ; x
+    call draw_2x2
+    add sp, 6
+
+
 
     push 0x00   ; color
     push 100    ; y
@@ -34,6 +49,16 @@ render:
     ; pop ax
     ; #3 
     ; add sp, 6
+
+    ; Tried to print. No success...
+    ; mov di, es
+    ; mov ax, 0xb800
+    ; mov es, ax
+    ; mov word [es:0x0000], 0x0248 ; H
+    ; mov word [es:0x0000], 0x1365 ; e
+    ; mov es, di
+
+    
 
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
@@ -60,7 +85,7 @@ draw_2x2:
 
     ; set first row y value
     mov di, 320
-    mov ax, WORD [bp + 4]
+    mov ax, WORD [bp + 6]
     imul di, ax ; y
 
     mov ax, WORD [bp + 4]
@@ -159,7 +184,7 @@ draw_wasd_input:
     mov si, 0x03
     call draw_square
 
-    .next
+    .next:
 
     
 

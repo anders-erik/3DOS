@@ -33,8 +33,6 @@ boot_x dw 0 ; bugs if defined within boot_sector section
 ; Boot sector - ran out of boot sector so had to move code to second_sector
 boot_sector:
 
-   
-
 
     ; Basic setup
     cli
@@ -46,19 +44,39 @@ boot_sector:
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
+
+    ; additional segment registers
+    ; NOT currently in use because they did not exists pre 80386
+    mov ax, 0x0000
+    mov fs, ax
+    mov gs, ax
     sti
 
-    ; Load second stage : sector #s 2-3
+    ; Load second stage     : sector # 2-5 = 0x7e00 - 0x85FF
     mov ah, 0x02            ; BIOS read sector function
-    mov al, 2               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL TO 
+    mov al, 3               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL IN MOVING BEYOND BOOT SECTOR
     mov ch, 0               ; Cylinder number
     mov cl, 2               ; Sector number (1 is boot sector)
     mov dh, 0               ; Head number
     mov dl, 0x80            ; Drive number (first hard disk)
-    mov bx, second_sector   ; Where to load the sector
+    mov bx, code_segment    ; Where to load the sector
     int 0x13                ; BIOS interrupt to read disk
-    
 
+    ; Load data             : sector # 6   = 0x0x8600 - 0x87FF
+    ; This section will automatically be
+    ; mov ah, 0x02            ; BIOS read sector function
+    ; mov al, 1               ; Number of sectors to read
+    ; mov ch, 0               ; Cylinder number
+    ; mov cl, 6               ; Sector number (2-5 is code)
+    ; mov dh, 0               ; Head number
+    ; mov dl, 0x80            ; Drive number (first hard disk)
+    ; mov ax, 0x0000
+    ; mov es, ax          ; segment
+    ; mov bx, 0x9000          ; Where to load the sector
+    ; int 0x13                ; BIOS interrupt to read disk
+    
+    
+    
 
     ;;
     ;; START - Boot section playground
@@ -87,6 +105,9 @@ boot_sector:
     mov ax, 0x0000
     mov ax, 0x0000
     mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
+    mov ax, 0x0000
 
 
     ; draw pixel
@@ -96,25 +117,29 @@ boot_sector:
     xor dx, dx
     inc word [boot_x]
     cmp word [boot_x], 6400 ; number of iterations and pixels draw until progressing past boot sector
-    jge .load_second_sector
+    jge .load_code_segment
     mov cx, [boot_x]  ; x
     mov dx, 10  ; y
     int 0x10
 
     ; jump back into landing buffer
     ; jmp 0x0000:0x7C25
-    jmp 0x0000:0x7C40
+    jmp 0x0000:0x7C60
     ; jmp 0x0000:0x7C70
 
     ;;
     ;; END - Boot section playground
     ;;
 
-    .load_second_sector:
+
+    ; mov al, 0x00       ; Exit QEMU with status 0
+    ; out 0x501, al      ; Write to QEMU's debug exit port
+
+    .load_code_segment:
     
     ; jump to segment 2
-    jmp 0x0000:0x7E00
-    ; jmp second_sector
+    ; jmp 0x0000:0x7E00
+    jmp code_segment
 
 
 
@@ -133,11 +158,11 @@ dw 0xaa55
 
 
 
+section .text
 ; --------------------------------------------------------
+;  CODE SEGMENT @ 0x7e00 (0x7c00 + 0xFF boot sector size)
 
-;  SECOND SECTOR @ 0x7e00 (0x7c00 + 0xFF boot sector size)
-
-second_sector:
+code_segment:
 
 
 ; Interrupt Data
@@ -148,6 +173,9 @@ IRQ0_VECTOR       equ 0x08
 ; used for restoring irq0 state -- implementation in 'timer_interrupt.asm'
 old_irq0_offset dw 0x0000
 old_irq0_segment dw 0x0000
+; PROBLEM WHEN INCLUDING THESE VARIABLES IN TEXT SEGMENT!
+; Uncommenting the blow definition will be interpereted as an instruction rather than data, blocking the vm!
+; old_irq0_segment dw 0x8bfa 
 
 ; timing interrupt counter
 tick_count dw 0
@@ -164,6 +192,17 @@ cli
 mov word [0x24], keyboard_handler
 mov word [0x26], 0
 sti
+
+; mov ax, old_irq0_offset
+; mov bx, ds
+; mov ax, word [bx]
+
+
+; Figure out location of word_array, as it is NOT in this location when going through disassembled code
+; -->  00000219:  A30086  mov [0x8600],ax
+; Turns out that all '.code' sections will be concatenated to the assembled .text sections, and the IP will not run the instructions placed in the .code!
+; 
+mov word [word_array], ax
 
 section .data
 
@@ -214,11 +253,25 @@ y dw 0
 mov WORD [y], 0
 mov WORD [x], 0
 
+; player position : NOTE: INTIAL VALUE WILL ALWAYS BE 0 WHEN DEFINED IN .data!
+player_position_x dw 0xA0
+player_position_y dw 0x60
+; mov word [player_position_x], 0xA0
+; mov word [player_position_y], 0x60
 
+call render
+call render
+call render
+call render
+call render
 
 
 section .text
 
+
+; ; player position
+; player_position_x dw 0xA0
+; player_position_y dw 0x60
 
 timer_setup:
  ; timer interrupt
@@ -241,6 +294,7 @@ timer_setup:
     mov ax, 0x0000
     mov es, ax                  ; ES points to interrupt vector table
     mov di, IRQ0_VECTOR * 4
+    ; backup already existing values in table
     mov ax, [es:di]        ; Load offset into AX
     mov [old_irq0_offset], ax
     mov ax, [es:di+2]      ; Load segment into AX
@@ -251,7 +305,7 @@ timer_setup:
     mov word [es:di], timer_handler   ; Offset of custom handler
     mov word [es:di+2], cs      ; Segment of this code
     sti                         ; Re-enable interrupts
-
+timer_setup_end:
 
 
 
@@ -274,7 +328,7 @@ timer_handler:
 
     call render
 
-     
+    call update
 
 
     ; PROBLEM: LOCKS IN BOOT SECTOR AND BLASTS CPU USAGE!
@@ -330,8 +384,6 @@ keyboard_handler:
     mov [key_code_ah], ah
     mov [key_code_al], al
 
-    ; call draw.clear_screen
-    ; call render
 
     ; DETECT KEY PRESS OR RELEASE
     test al, 0x80      ; highest bit is press/release flag
@@ -353,17 +405,9 @@ keyboard_handler:
     .key_flag_done:
     
 
-    
-
-    ; UPDATE
-    call update
 
 
-
-    ; call numpad_navigate
-
-
-.keyboard_handler_done:
+keyboard_handler_done:
     mov al, 0x20
     out 0x20, al  ; Send EOI to PIC
     popa
@@ -385,11 +429,11 @@ wasd_update:
     cmp WORD [press_event], 1 ; is pressing
     je .w_press
 
-.w_release
+.w_release:
     mov WORD [w_pressed], 0x0000
     jmp .wasd_done
     
-.w_press
+.w_press:
     mov WORD [w_pressed], 1
     jmp .wasd_done
 
@@ -403,11 +447,11 @@ wasd_update:
     cmp WORD [press_event], 1 ; is pressing
     je .a_press
 
-    .a_release
+    .a_release:
     mov WORD [a_pressed], 0x0000
     jmp .wasd_done
     
-    .a_press
+    .a_press:
     mov WORD [a_pressed], 1
     jmp .wasd_done
 
@@ -421,11 +465,11 @@ wasd_update:
     cmp WORD [press_event], 1 ; is pressing
     je .s_press
 
-    .s_release
+    .s_release:
     mov WORD [s_pressed], 0x0000
     jmp .wasd_done
     
-    .s_press
+    .s_press:
     mov WORD [s_pressed], 1
     jmp .wasd_done
 
@@ -439,15 +483,15 @@ wasd_update:
     cmp WORD [press_event], 1 ; is pressing
     je .d_press
 
-    .d_release
+    .d_release:
     mov WORD [d_pressed], 0x0000
     jmp .wasd_done
     
-    .d_press
+    .d_press:
     mov WORD [d_pressed], 1
     jmp .wasd_done
 
-    .next
+    .next:
 
 .wasd_done:
 
@@ -560,34 +604,28 @@ numpad_navigate:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-; Draw large square
-.draw_large_square:
-    mov ah, 0x06    ; Scroll up 
-    mov bh, 0x06    ; color
-    mov ch, 10      ; Upper left x of square
-    mov cl, 10      ; Upper left y of square
-    mov dh, 20      ; Lower right x of square
-    mov dl, 20      ; Lower right y of square
-    int 0x10        ; Call BIOS video interrupt
-    ret
-
-
-
 update:
+
+.update_player_position:
+
+.w: cmp word [w_pressed], 1
+    jne .a
+    sub word [player_position_y], 2
+    
+.a: cmp word [a_pressed], 1
+    jne .s
+    sub word [player_position_x], 2
+
+.s: cmp word [s_pressed], 1
+    jne .d
+    add word [player_position_y], 2
+
+.d: cmp word [d_pressed], 1
+    jne .update_player_position_end
+    add word [player_position_x], 2
+
+.update_player_position_end:
+
 
 ; Update current pixel position
 .update_location:
@@ -601,7 +639,10 @@ update:
     mov word [pixel_y], 0
     ; ret
 
-ret
+    ret
+
+.update_location_end:
+
 
 
 reachable:
@@ -621,9 +662,35 @@ reachable:
 
 ; Reserve space for second stage
 ; times 1024 db 0
-times 200 db 0
+; times 200 db 0
+code_segment_end:
 
-%include "./draw/data.asm"
+; Second stage is to take up four sectors for now
+; 0x7e00 - 0x85FF
+times 2048-(code_segment_end - code_segment) db 0
+
+
+
+
+; DATA SEGMENT
+; one section loaded from disk
+; 0x0x8600 - 0x87FF
+; org 0x9000
+
+
+section   .data
+; %include "./draw/data.asm"
+
+
+; my_data equ 0x90000  ; 0x9000:0000 = 0x90000 (linear address)
+; my_data equ 0x0900
+; my_data:
+test_var dw 100
+
+my_data_end:
+; times 512-(my_data_end - my_data) db 0
+
+
 
 
 ; GPT - didn't work!
