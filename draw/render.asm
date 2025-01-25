@@ -1,7 +1,10 @@
 section   .text
 
 render:
-    pusha
+    push bp
+    mov bp, sp
+
+    ; pusha
     call clear
     ; call clear_screen_old
 
@@ -11,10 +14,73 @@ render:
     ; call draw_large_square
     call mode_13h_pixel_draw
     call draw_input_incrementing_pixel
-    call draw_keycode_coords
+    call draw_keycode_coords ; uses interrupts 
     call extern_pixels
     call simple_pixel
-    popa
+
+
+    push 0x00   ; color
+    push 100    ; y
+    push 100    ; x
+    call draw_2x2
+    add sp, 6
+    ; Functional Stack reset alternatives:
+    ; #1
+    ; pop ax
+    ; pop ax
+    ; pop ax
+    ; #2
+    ; add sp, 4
+    ; pop ax
+    ; #3 
+    ; add sp, 6
+
+    mov sp, bp  ; return stack pointer
+    pop bp      ; restore bp to callers value
+    ; popa
+    ret
+
+
+
+; @ x [i16] - bp + 4
+; @ y [i16] - bp + 6
+; @ c [i16] - bp + 8
+draw_2x2:
+
+    ; save previous stack frame. Then set up new one. 
+    push bp
+    mov bp, sp ; can't use stack pointer for effective address calculation
+    
+    mov ax, 0xA000         ; Segment for video memory
+    mov es, ax             ; Point ES to video memory
+
+    ; Set color
+    mov dl, BYTE [bp + 8] ; col 1
+    mov dh, BYTE [bp + 8] ; col 2
+
+    ; set first row y value
+    mov di, 320
+    mov ax, WORD [bp + 4]
+    imul di, ax ; y
+
+    mov ax, WORD [bp + 4]
+    add di, ax ; x
+
+    mov [es:di], dx     ; write first pixel row
+
+    ; second row 
+    add di, 320
+    mov [es:di], dx     ; write second pixel row
+
+    
+    ; reset stack to call entrypoint
+    mov sp, bp
+    pop bp
+
+    ; Option # 1
+    pop ax ; return adress
+    jmp ax
+    ; Option # 2
     ret
 
 

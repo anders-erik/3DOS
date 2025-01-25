@@ -42,20 +42,21 @@ boot_sector:
     ; mov cs, ax ; Why doesn't this work? I thought that cs=0 by default, so this should change nothing?
     mov ax, 0x0000
     mov ds, ax
+    mov ax, 0x0000
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
     sti
 
-    ; Load second stage
+    ; Load second stage : sector #s 2-3
     mov ah, 0x02            ; BIOS read sector function
     mov al, 2               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL TO 
     mov ch, 0               ; Cylinder number
     mov cl, 2               ; Sector number (1 is boot sector)
     mov dh, 0               ; Head number
-    mov dl, 0x80            ; Drive number
+    mov dl, 0x80            ; Drive number (first hard disk)
     mov bx, second_sector   ; Where to load the sector
-    int 0x13
+    int 0x13                ; BIOS interrupt to read disk
     
 
 
@@ -256,6 +257,7 @@ timer_setup:
 
 
 ; Main loop
+; Stack is untouched at this point
 main_loop:
     hlt
     jmp main_loop
@@ -267,6 +269,8 @@ main_loop:
 timer_handler:
     pusha
     inc word [tick_count]
+
+    mov bp, sp ; bp already pushed duing hanlder entry
 
     call render
 
@@ -618,6 +622,8 @@ reachable:
 ; Reserve space for second stage
 ; times 1024 db 0
 times 200 db 0
+
+%include "./draw/data.asm"
 
 
 ; GPT - didn't work!

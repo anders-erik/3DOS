@@ -94,7 +94,7 @@
             "type": "shell",
             "label": "Draw - Build & Run",
             // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
-            "command": "nasm -f bin -o ./draw/draw.bin ./draw/boot.asm && qemu-system-i386 -drive format=raw,file=./draw/draw.bin ",
+            "command": "nasm -f bin -o ./draw/draw.bin ./draw/boot.asm && qemu-system-i386 -m 1M -drive format=raw,file=./draw/draw.bin ",
             "args": [],
             "options": {},
             "problemMatcher": [],
