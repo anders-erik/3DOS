@@ -409,7 +409,7 @@ keyboard_handler:
     
     .key_flag_done:
     
-
+    call float_test
 
 
 keyboard_handler_done:
@@ -425,23 +425,28 @@ store_ascii_pressed:
 .a: cmp ax, 30
     jne .b
     mov word [ascii_current_press], 'A'
-    jmp .done
+    jmp .match
 
 .b: cmp ax, 0x30
     jne .c
     mov word [ascii_current_press], 'B'
-    jmp .done
+    jmp .match
 
 .c: cmp ax, 0x2E
-    jne .d
+    jne .d ; NOTE THE CUSTOM END OF SWITCHING!
     mov word [ascii_current_press], 'C'
-    jmp .done
+    jmp .match
 
 
 .d: 
 
+.no_match:
+    mov word [ascii_current_press], 0x00
+    jmp .done
 
-.done:
+
+
+.match:
     ; write current press to cursor buffer
     mov ax, word [ascii_current_press]
     mov cx, word [cursor_count] ; current count
@@ -449,6 +454,7 @@ store_ascii_pressed:
     add bx, cx
     mov byte [bx], al
     inc word [cursor_count]
+.done:
     ret
 
 
@@ -692,41 +698,67 @@ reachable:
     ret
 
 
+float_test:
+
+    finit
+
+    ; Load into FPU stack
+    ; top of stack == ST(0)
+    fld dword [float_1]    ; ST(0) = float_1
+    fld dword [float_2]    ; ST(0) = float_2, ST(1) = float_1
+    fld dword [float_3]    ; ST(0) = float_3, ST(1) = float_2, ST(2) = float_1
+
+    ; fxch ; Swaps spot 0 and 1 ??
+
+    ; operations
+    fadd                  ; ST(0) = ST(0) + ST(1)
+    ; fadd ST(1)     ; ST(0) = ST(0) + ST(1)
+    ; fadd
+    ; fmul                  ; ST(1) = ST(0) * ST(1)
+    ; fdiv                    ; ST(1) = ST(0) / ST(1)
+
+    ; ; pop the FPU stack into memory
+    ; fstp dword [float_res]
+
+    ; ; push/load from memory onto FPU stack
+    ; fld dword [float_res]   ; Load 'result' back into ST(0)
+
+    ; Convert to integer and store in 'integer_result'
+    fistp word [integer_res] ; Convert and pop ST(0)
+
+    ; Draw pixel
+    mov ax, 0xA000
+    mov es, ax
+    mov di, word [integer_res]
+    mov word [es:di], 0x0F0F
+    ret
+
+
 ; C-like includes
 %include "./draw/render.asm"
 %include "./draw/keyboard.asm"
-
-
-; Reserve space for second stage
-; times 1024 db 0
-; times 200 db 0
 code_segment_end:
 
-; Second stage is to take up four sectors for now
-; 0x7e00 - 0x85FF
 times 2048-(code_segment_end - code_segment) db 0
 
 
 
-
-; DATA SEGMENT
-; one section loaded from disk
-; 0x0x8600 - 0x87FF
-; org 0x9000
-
-
-section   .data
+section .data
 ; %include "./draw/data.asm"
-
-
-; my_data equ 0x90000  ; 0x9000:0000 = 0x90000 (linear address)
 ; my_data equ 0x0900
 my_data:
 tri_2d_int_array dw 100, 80, 0, 150, 80, 0, 100, 40, 0
 test_var dw 1000
 
+; Testing floating point numbers
+float_1 dd 5.14
+float_2 dd 5.71
+float_3 dd 20.22
+float_res dd 0.0
+integer_res dw 0
 
-char_A  db 00011000b
+
+char_A    db 00011000b
           db 00100100b
           db 01000010b
           db 01000010b
@@ -735,7 +767,7 @@ char_A  db 00011000b
           db 01000010b
           db 01000010b
 
-char_B  db 11111110b
+char_B    db 11111110b
           db 10000010b
           db 10000010b
           db 11111110b
@@ -744,7 +776,7 @@ char_B  db 11111110b
           db 10000001b
           db 11111111b
 
-char_C  db 11111111b
+char_C    db 11111111b
           db 10000001b
           db 10000000b
           db 10000000b
@@ -753,8 +785,7 @@ char_C  db 11111111b
           db 10000001b
           db 11111111b
 
-char_default  
-          db 10101010b
+char_default  db 10101010b
           db 10101010b
           db 10101010b
           db 10101010b

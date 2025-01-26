@@ -24,58 +24,77 @@ render:
     call simple_pixel
 
     ; draw player position
-    .draw_player_position:
-    push 0x01   ; color
-    push word [player_position_y]    ; y
-    push word [player_position_x]    ; x
+    call draw_player_position
+    
+
+    call a2x2_cluster
+
+
+    ; print current cursor buffer
+    call write_whole_cursor_buffer
+    
+
+    ; Print once when new ascii press detected
+    call show_current_ascii_press
+
+
+    call print_available_chars
+
+
+    mov sp, bp  ; return stack pointer
+    pop bp      ; restore bp to callers value
+    ; popa
+    ret
+
+
+
+show_current_ascii_press:
+    cmp word [ascii_current_press], 0
+    je .write_current_press_end
+    mov ax, word [ascii_current_press]
+    call write_ascii_char_at_cursor
+    mov word [ascii_current_press], 0 ; reset current press value as it is acting as press-flag
+    .write_current_press_end:
+    ret
+
+
+a2x2_cluster:
+    push 0x00   ; color
+    push  105    ; y
+    push  105    ; x
     call draw_2x2
     add sp, 6
 
     push 0x00   ; color
-    push  10    ; y
-    push  10    ; x
+    push  103    ; y
+    push  101    ; x
     call draw_2x2
     add sp, 6
 
-
+    push 0x00   ; color
+    push  101    ; y
+    push  104    ; x
+    call draw_2x2
+    add sp, 6
 
     push 0x00   ; color
     push 100    ; y
     push 100    ; x
     call draw_2x2
     add sp, 6
-    ; Functional Stack reset alternatives:
-    ; #1
-    ; pop ax
-    ; pop ax
-    ; pop ax
-    ; #2
-    ; add sp, 4
-    ; pop ax
-    ; #3 
-    ; add sp, 6
 
-    ; Tried to print. No success...
-    ; The only way to use this code is to switch mack to text mode, resulting which causes an unbelievable amount of flickering
-    ; mov di, es
-    ; mov ax, 0xB800
-    ; mov es, ax
-    ; mov word [es:0x0000], 0x0248 ; H
-    ; mov word [es:0x0000], 0x1365 ; e
-    ; mov es, di
+    ret
 
-    ; print current cursor buffer
-    call write_whole_cursor_buffer
-    
+draw_player_position:
+    push 0x01   ; color
+    push word [player_position_y]    ; y
+    push word [player_position_x]    ; x
+    call draw_2x2
+    add sp, 6
+    ret
 
-    ; Print once if new ascii press detected
-    ; RESETS THE ASCII VALUE
-    cmp word [ascii_current_press], 0
-    je .write_cursor_end
-    mov ax, word [ascii_current_press]
-    call write_char_at_cursor
-    mov word [ascii_current_press], 0 ; reset key flag
-    .write_cursor_end:
+
+print_available_chars:
 
     mov ax, 'A'
     call char_ascii_to_bitmap_address
@@ -84,7 +103,7 @@ render:
     push 190            ; y
     push 10             ; x
     call write_char_from_bitmap_address
-    add sp, 4
+    add sp, 6
 
     mov ax, 'B'
     call char_ascii_to_bitmap_address
@@ -93,7 +112,7 @@ render:
     push word 190           ; y
     push word 20            ; x
     call write_char_from_bitmap_address
-    add sp, 4
+    add sp, 6
 
     mov ax, 'C'
     call char_ascii_to_bitmap_address
@@ -102,21 +121,8 @@ render:
     push 190            ; y
     push 30             ; x
     call write_char_from_bitmap_address
-    add sp, 4
+    add sp, 6
 
-    ; push ax
-    ; push ax
-    ; push ax
-    ; push ax
-    ; pop ax
-    ; pop ax
-    ; pop ax
-    ; pop ax
-
-
-    mov sp, bp  ; return stack pointer
-    pop bp      ; restore bp to callers value
-    ; popa
     ret
 
 ; loop throught the cursor buffer, printing output at fixed row (2?)
@@ -176,7 +182,7 @@ write_whole_cursor_buffer:
 ; input     : ax = char ascii value
 ; WILL ONLY RENDER FOR NEXT FRAME ONE FRAME!
 ; NO INCREMENT
-write_char_at_cursor:
+write_ascii_char_at_cursor:
     ; mov ax, 'A'
     call char_ascii_to_bitmap_address
     ; ax = bitmap address
@@ -214,7 +220,7 @@ char_ascii_to_bitmap_address:
     jmp .done
 
 .C: cmp ax, 0x43
-    jne .default
+    jne .default ; NOTE THE CUSTOM END OF SWITCHING!
     mov ax, char_C
     jmp .done
 
