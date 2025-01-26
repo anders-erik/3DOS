@@ -64,6 +64,8 @@ render:
     ; mov word [es:0x0000], 0x1365 ; e
     ; mov es, di
 
+    ; print current cursor buffer
+    call write_whole_cursor_buffer
     
 
     ; Print once if new ascii press detected
@@ -117,6 +119,58 @@ render:
     ; popa
     ret
 
+; loop throught the cursor buffer, printing output at fixed row (2?)
+write_whole_cursor_buffer:
+
+    mov bx, cursor_buffer       ; buffer address
+    ; Indexes
+    mov cx, word [cursor_count] ; loop decrement - index
+    mov si, 0x0000              ; current char index in buffer
+    .print_cursor_buffer:
+    
+
+    ; move char from buffer and get char address
+    mov al, byte [bx + si]
+    xor ah, ah
+    call char_ascii_to_bitmap_address
+
+    ; set cursor x location
+    mov dx, si                  ; buffer index
+    imul dx, word [cursor_w]    ; cursor width
+
+    ; set cursor y location (fixed for now)
+    mov di, 18 ; second row
+    imul di, word [cursor_h]
+    
+
+    ; perists across call
+    push si
+    push cx
+
+    push ax             ; char bitmap address
+    push di             ; y
+    push dx             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    pop cx
+    pop si
+
+    ; call 
+    ; mov ax, word [ascii_current_press]
+    ; call write_char_at_cursor
+
+    inc si
+    dec cx
+    cmp word cx, 0
+    jg .print_cursor_buffer
+    ; loop .print_cursor_buffer
+
+    ; DEBUG
+    ; cli 
+    ; hlt
+
+    ret
 
 
 ; input     : ax = char ascii value
