@@ -53,6 +53,7 @@ render:
     ; add sp, 6
 
     ; Tried to print. No success...
+    ; The only way to use this code is to switch mack to text mode, resulting which causes an unbelievable amount of flickering
     ; mov di, es
     ; mov ax, 0xB800
     ; mov es, ax
@@ -62,10 +63,73 @@ render:
 
 
 
+    ; Start rendering of letters in graphics/video mode
+    mov si, char_A      ; Letter address
+    push 190            ; y
+    push 10             ; x
+    call write_char
+    add sp, 4
+
+    mov si, char_B      ; Letter address
+    push word 190            ; y
+    push word 20             ; x
+    call write_char
+    add sp, 4
+
+    mov si, char_C      ; Letter address
+    push 190            ; y
+    push 30             ; x
+    call write_char
+    add sp, 4
+
+
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
     ; popa
     ret
+
+; routine is heavily commented for the sake of learning!
+write_char:
+    push bp
+    mov bp, sp
+
+    ; set up buffer segment
+    mov ax, 0xA000
+    mov es, ax
+
+
+    mov cx, 8               ; row loop inex == char height
+.draw_row:
+    lodsb                   ; load letter byte (di) into ax
+    push word cx            ; Save row counter, as cx will be used for column indexing loop
+
+    ; Set leftmost location of new row
+    mov di, [bp+6]          ; Start at the Y-coordinate
+    imul di, 320            ; Multiply Y by screen width (320)
+    add di, [bp+4]          ; Add X-coordinate to get pixel offset
+
+    mov cx, 8               ; Column loop index == char width
+.draw_pixel:
+    test al, 10000000b      ; Test the most significant bit (1 pixel)
+    jz .next_pixel          ; If 0, skip drawing the pixel
+
+    mov byte [es:di], 0x0F  ; DRAW PIXEL
+
+.next_pixel:                ; always move to next pixel
+    shl al, 1               ; next letter bit for comparison
+    inc di                  ; Move to the next framebuffer byte
+    loop .draw_pixel        ; Repeat for all 8 pixels in the row
+
+    inc word [bp+6]         ; Move to the next row by incrementing y
+
+    pop word cx             ; Restore row counter
+    loop .draw_row          ; dec cx + cmp cx, 0 + jnz .draw_row ?
+
+
+    mov sp, bp
+    pop bp
+    ret
+write_a_end:
 
 
 

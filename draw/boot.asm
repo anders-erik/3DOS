@@ -689,6 +689,32 @@ tri_2d_int_array dw 100, 80, 0, 150, 80, 0, 100, 40, 0
 test_var dw 1000
 
 
+char_A  db 00011000b
+          db 00100100b
+          db 01000010b
+          db 01000010b
+          db 01111110b
+          db 01000010b
+          db 01000010b
+          db 01000010b
+
+char_B  db 11111110b
+          db 10000010b
+          db 10000010b
+          db 11111110b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+
+char_C  db 11111111b
+          db 10000001b
+          db 10000000b
+          db 10000000b
+          db 10000000b
+          db 10000000b
+          db 10000001b
+          db 11111111b
 
 my_data_end:
 ; times 512-(my_data_end - my_data) db 0
