@@ -40,8 +40,8 @@ boot_sector:
     ; mov cs, ax ; Why doesn't this work? I thought that cs=0 by default, so this should change nothing?
     mov ax, 0x0000
     mov ds, ax
-    mov ax, 0x0000
-    mov es, ax
+    ; mov ax, 0x0000
+    ; mov es, ax
     mov ss, ax
     mov sp, 0x7C00
 
@@ -54,7 +54,7 @@ boot_sector:
 
     ; Load second stage     : sector # 2-5 = 0x7e00 - 0x85FF
     mov ah, 0x02            ; BIOS read sector function
-    mov al, 3               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL IN MOVING BEYOND BOOT SECTOR
+    mov al, 4               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL IN MOVING BEYOND BOOT SECTOR
     mov ch, 0               ; Cylinder number
     mov cl, 2               ; Sector number (1 is boot sector)
     mov dh, 0               ; Head number
@@ -64,16 +64,16 @@ boot_sector:
 
     ; Load data             : sector # 6   = 0x0x8600 - 0x87FF
     ; This section will automatically be
-    ; mov ah, 0x02            ; BIOS read sector function
-    ; mov al, 1               ; Number of sectors to read
-    ; mov ch, 0               ; Cylinder number
-    ; mov cl, 6               ; Sector number (2-5 is code)
-    ; mov dh, 0               ; Head number
-    ; mov dl, 0x80            ; Drive number (first hard disk)
+    mov ah, 0x02            ; BIOS read sector function
+    mov al, 1               ; Number of sectors to read
+    mov ch, 0               ; Cylinder number
+    mov cl, 6               ; Sector number (2-5 is code)
+    mov dh, 0               ; Head number
+    mov dl, 0x80            ; Drive number (first hard disk)
     ; mov ax, 0x0000
     ; mov es, ax          ; segment
-    ; mov bx, 0x9000          ; Where to load the sector
-    ; int 0x13                ; BIOS interrupt to read disk
+    mov bx, 0x8600          ; Where to load the sector
+    int 0x13                ; BIOS interrupt to read disk
     
     
     
@@ -684,8 +684,11 @@ section   .data
 
 ; my_data equ 0x90000  ; 0x9000:0000 = 0x90000 (linear address)
 ; my_data equ 0x0900
-; my_data:
-test_var dw 100
+my_data:
+tri_2d_int_array dw 100, 80, 0, 150, 80, 0, 100, 40, 0
+test_var dw 1000
+
+
 
 my_data_end:
 ; times 512-(my_data_end - my_data) db 0

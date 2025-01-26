@@ -8,6 +8,8 @@ render:
     call clear
     ; call clear_screen_old
 
+    call draw_triangle
+
     call draw_wasd_input
 
     ; call draw_tests
@@ -52,18 +54,113 @@ render:
 
     ; Tried to print. No success...
     ; mov di, es
-    ; mov ax, 0xb800
+    ; mov ax, 0xB800
     ; mov es, ax
     ; mov word [es:0x0000], 0x0248 ; H
     ; mov word [es:0x0000], 0x1365 ; e
     ; mov es, di
 
-    
+
 
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
     ; popa
     ret
+
+
+
+draw_triangle:
+    ; pusha
+
+    ; Bottom left corner
+    push word [tri_2d_int_array+4]   ; color
+    push word [tri_2d_int_array+2]    ; y
+    push word [tri_2d_int_array+0]    ; x
+    call draw_2x2
+    add sp, 6
+
+    ; bottom right corner
+    push word [tri_2d_int_array+10]   ; color
+    push word [tri_2d_int_array+8]    ; y
+    push word [tri_2d_int_array+6]    ; x
+    call draw_2x2
+    add sp, 6
+
+    ; Top left corner
+    push word [tri_2d_int_array+16]   ; color
+    push word [tri_2d_int_array+14]    ; y
+    push word [tri_2d_int_array+12]    ; x
+    call draw_2x2
+    add sp, 6
+
+
+    ; draw every pixel below the line connecting top left and bottom right
+
+
+    ;
+    ; get slope from point 3 to point 1
+    ;
+
+    ; delta x
+    mov ax, [tri_2d_int_array+6]
+    sub ax, [tri_2d_int_array+12]
+    ; delta y
+    mov bx, [tri_2d_int_array+8]
+    sub bx, [tri_2d_int_array+14]
+
+    ; slope using integers
+    ; slope = si / 10
+    mov si, 0x0000
+    mov dx, bx
+    imul dx, 10
+    ; count number of dx in dy*10
+    mov cx, 0
+.slope_calc_loop:
+    add cx, ax
+    inc si
+    cmp cx, dx
+    jle .slope_calc_loop
+.slope_calc_loop_end:
+
+    ; start drawing pixels at si
+    mov di, si
+
+
+
+
+    mov ax, 0xA000
+    mov es, ax
+    ; xor ax, ax
+    ; mov ax, 0x0000
+    ; mov di, 0x0000
+    ; imul di, 320
+    ; mov di, dx
+    mov dx, 0xF900
+    ; mov dx, 320*200
+
+    ; mov ax, [tri_2d_int_array+4] ; color of first triangle
+    mov ax, 0x12
+    .loop_start:
+    inc di
+    mov [es:di], al
+
+    ; Split screen diagonally
+
+
+    ; ONLY works if set to 'not equal'!
+    ; spent an hour trying to use jle/jge but was only ableto draw top or bottom half of screen....
+    cmp word di, dx
+    ; jne .loop_start
+    ; http://unixwiz.net/techtips/x86-jumps.html
+    ; keep looping as long as di is less than dx
+    ; UNSIGNED, and CARRY DETECTED as dx is greater??
+    jb .loop_start
+    
+    .loop_end:
+
+    ; popa
+    ret
+draw_triangle_end:
 
 
 
@@ -298,7 +395,7 @@ clear:
     mov cx, 320 * 200 / 2  ; rep stosw increments two bytes per iteration
     mov ax, 0xCFCF ; 2 x mode 13h color palette (1 byte / pixel)
     
-    ; Increments di by 2 each iteration (default DF=0) and loads eax into [es:di] and stops at di=cx?
+    ; Increments di by 2 each iteration (default DF=0) and loads ax into [es:di] and stops at di=cx?
     ; stosw : w=word=eax, stosb : w=byte,
     rep stosw
 
