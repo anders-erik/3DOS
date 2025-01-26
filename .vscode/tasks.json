@@ -94,7 +94,7 @@
             "type": "shell",
             "label": "Draw - Build & Run",
             // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
-            "command": "nasm -f bin -o ./draw/draw.bin ./draw/boot.asm && qemu-system-i386 -m 1M -drive format=raw,file=./draw/draw.bin ",
+            "command": "nasm -f bin -o ./draw/draw.bin ./draw/boot.asm && qemu-system-i386 -m 1M -drive format=raw,file=./draw/draw.bin",
             "args": [],
             "options": {},
             "problemMatcher": [],
@@ -105,6 +105,42 @@
             //     "reveal": "always",
             //     "panel": "shared"
             // }
+        },
+        {
+            "type": "shell",
+            "label": "Draw - Start Debug Window",
+            "command": "nasm -f bin -o ./draw/draw.bin ./draw/boot.asm && qemu-system-i386 -m 1M -drive format=raw,file=./draw/draw.bin -gdb tcp::1234",
+            // "command": "gdb draw/draw.elf",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+            // "dependsOn": ["3DOS : Debug Window"],
+            // "dependsOrder": "parallel",
+            "group": "build",
+            // "detail": "compiler: /usr/bin/nasm"
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "type": "shell",
+            "label": "Draw - Attach GDB to halted VM",
+            "command": "gdb -x ./draw/draw.gdb",
+            // "command": "gdb draw/draw.elf",
+            "args": [],
+            "options": {},
+            "problemMatcher": [],
+            // "dependsOn": ["3DOS : Debug Window"],
+            // "dependsOrder": "parallel",
+            "group": "build",
+            // "detail": "compiler: /usr/bin/nasm"
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new"
+            }
         },
         {
             "type": "shell",
@@ -121,40 +157,22 @@
             //     "panel": "shared"
             // }
         },
-        {
-            // Claude told me I needed this for gdb
-            "type": "shell",
-            "label": "Draw - Create Debug File",
-            // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
-            "command": "nasm -f bin -o draw/draw.bin ./draw/boot.asm    &&  nasm -f elf32 -g -F dwarf -D ELF -o ./draw/draw.o ./draw/boot.asm      &&      ld -m elf_i386 -Ttext 0x7c00 -o ./draw/draw.elf ./draw/draw.o",
-            "args": [],
-            "options": {},
-            "problemMatcher": [],
-            // "detail": "compiler: /usr/bin/nasm"
-            // "presentation": {
-            //     "echo": true,
-            //     "reveal": "always",
-            //     "panel": "shared"
-            // }
-        },
-        {
-            "type": "shell",
-            "label": "Draw - Attach GDB",
-            // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
-            "command": "gdb draw/draw.elf",
-            "args": [],
-            "options": {},
-            "problemMatcher": [],
-            // "dependsOn": ["3DOS : Debug Window"],
-            // "dependsOrder": "parallel",
-            "group": "build",
-            // "detail": "compiler: /usr/bin/nasm"
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "panel": "new"
-            }
-        },
+        // {
+        //     // Claude told me I needed this for gdb
+        //     "type": "shell",
+        //     "label": "Draw - Create Debug File",
+        //     // "command": "ld -m elf_i386 -n -T linker.ld -o kernel.bin boot.o multiboot_header.o && qemu-system-x86_64 -kernel kernel.bin",
+        //     "command": "nasm -f bin -o draw/draw.bin ./draw/boot.asm    &&  nasm -f elf32 -g -F dwarf -D ELF -o ./draw/draw.o ./draw/boot.asm      &&      ld -m elf_i386 -Ttext 0x7c00 -o ./draw/draw.elf ./draw/draw.o",
+        //     "args": [],
+        //     "options": {},
+        //     "problemMatcher": [],
+        //     // "detail": "compiler: /usr/bin/nasm"
+        //     // "presentation": {
+        //     //     "echo": true,
+        //     //     "reveal": "always",
+        //     //     "panel": "shared"
+        //     // }
+        // },
         {
             "label": "Draw - Native debug tasks - Claude",
             "type": "shell",

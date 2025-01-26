@@ -393,6 +393,11 @@ keyboard_handler:
     mov WORD [press_event], 0x1
     ; call .write_press_key_code_char
     call wasd_update
+
+    ; Register ascii press
+    mov ax, word [key_code_al]
+    call store_ascii_pressed
+    
     jmp .key_flag_done
 
     .key_released:
@@ -413,7 +418,38 @@ keyboard_handler_done:
     popa
     iret ; interrupt - meaning : 2024-10-31
 
+; input: ax = raw keyboard press 'al' value 
+store_ascii_pressed:
+    ; mov ax, word [key_code_al]
 
+.a: cmp ax, 30
+    jne .b
+    mov word [ascii_current_press], 'A'
+    jmp .done
+
+.b: cmp ax, 0x30
+    jne .c
+    mov word [ascii_current_press], 'B'
+    jmp .done
+
+.c: cmp ax, 0x2E
+    jne .d
+    mov word [ascii_current_press], 'C'
+    jmp .done
+
+
+.d: 
+
+
+.done:
+    ; write current press to cursor buffer
+    mov ax, word [ascii_current_press]
+    mov cx, word [cursor_count] ; current count
+    mov bx, cursor_buffer
+    add bx, cx
+    mov byte [bx], al
+    inc word [cursor_count]
+    ret
 
 
 ; Toggle key states
@@ -658,6 +694,7 @@ reachable:
 
 ; C-like includes
 %include "./draw/render.asm"
+%include "./draw/keyboard.asm"
 
 
 ; Reserve space for second stage
@@ -715,6 +752,16 @@ char_C  db 11111111b
           db 10000000b
           db 10000001b
           db 11111111b
+
+char_default  
+          db 10101010b
+          db 10101010b
+          db 10101010b
+          db 10101010b
+          db 10101010b
+          db 10101010b
+          db 10101010b
+          db 10101010b
 
 my_data_end:
 ; times 512-(my_data_end - my_data) db 0

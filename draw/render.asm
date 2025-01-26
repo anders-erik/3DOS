@@ -9,6 +9,9 @@ render:
     ; call clear_screen_old
 
     call draw_triangle
+    ; cli 
+
+    ; hlt
 
     call draw_wasd_input
 
@@ -61,26 +64,52 @@ render:
     ; mov word [es:0x0000], 0x1365 ; e
     ; mov es, di
 
+    
 
+    ; Print once if new ascii press detected
+    ; RESETS THE ASCII VALUE
+    cmp word [ascii_current_press], 0
+    je .write_cursor_end
+    mov ax, word [ascii_current_press]
+    call write_char_at_cursor
+    mov word [ascii_current_press], 0 ; reset key flag
+    .write_cursor_end:
 
-    ; Start rendering of letters in graphics/video mode
-    mov si, char_A      ; Letter address
+    mov ax, 'A'
+    call char_ascii_to_bitmap_address
+    ; mov si, ax          ; Letter address
+    push ax          ; Letter address
     push 190            ; y
     push 10             ; x
-    call write_char
+    call write_char_from_bitmap_address
     add sp, 4
 
-    mov si, char_B      ; Letter address
-    push word 190            ; y
-    push word 20             ; x
-    call write_char
+    mov ax, 'B'
+    call char_ascii_to_bitmap_address
+    ; mov si, char_B          ; Letter address
+    push ax          ; Letter address
+    push word 190           ; y
+    push word 20            ; x
+    call write_char_from_bitmap_address
     add sp, 4
 
+    mov ax, 'C'
+    call char_ascii_to_bitmap_address
     mov si, char_C      ; Letter address
+    push ax          ; Letter address
     push 190            ; y
     push 30             ; x
-    call write_char
+    call write_char_from_bitmap_address
     add sp, 4
+
+    ; push ax
+    ; push ax
+    ; push ax
+    ; push ax
+    ; pop ax
+    ; pop ax
+    ; pop ax
+    ; pop ax
 
 
     mov sp, bp  ; return stack pointer
@@ -88,10 +117,70 @@ render:
     ; popa
     ret
 
+
+
+; input     : ax = char ascii value
+; WILL ONLY RENDER FOR NEXT FRAME ONE FRAME!
+; NO INCREMENT
+write_char_at_cursor:
+    ; mov ax, 'A'
+    call char_ascii_to_bitmap_address
+    ; ax = bitmap address
+    
+    ; set cursor x location
+    mov bx, word [cursor_c]
+    ; inc word [cursor_c]
+    imul bx, word [cursor_w]
+
+    ; set cursor y location (fixed for now)
+    mov dx, word [cursor_r]
+    imul dx, word [cursor_h]
+
+    ; mov si, ax          ; Letter address
+    push ax
+    push dx            ; y
+    push bx             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    ret
+
+
+; input     : ax = char ascii value
+; return    : ax = bitmap address
+char_ascii_to_bitmap_address:
+.A: cmp ax, 0x41
+    jne .B
+    mov ax, char_A
+    jmp .done
+
+.B: cmp ax, 0x42
+    jne .C
+    mov ax, char_B
+    jmp .done
+
+.C: cmp ax, 0x43
+    jne .default
+    mov ax, char_C
+    jmp .done
+
+.D:
+
+.default:
+    mov ax, char_default
+    jmp .done
+
+.done:
+    ret
+
+
 ; routine is heavily commented for the sake of learning!
-write_char:
+write_char_from_bitmap_address:
     push bp
     mov bp, sp
+
+    ; char bitmap address
+    mov si, [bp+8]
 
     ; set up buffer segment
     mov ax, 0xA000
@@ -100,7 +189,7 @@ write_char:
 
     mov cx, 8               ; row loop inex == char height
 .draw_row:
-    lodsb                   ; load letter byte (di) into ax
+    lodsb                   ; load letter byte (si) into ax
     push word cx            ; Save row counter, as cx will be used for column indexing loop
 
     ; Set leftmost location of new row
@@ -130,7 +219,6 @@ write_char:
     pop bp
     ret
 write_a_end:
-
 
 
 draw_triangle:
