@@ -48,6 +48,148 @@ render:
 
 
 
+draw_triangle:
+    ; pusha
+    push bp
+    mov bp, sp
+
+    ; Bottom left corner
+    push word [tri_2d_int_array+4]   ; color
+    push word [tri_2d_int_array+2]    ; y
+    push word [tri_2d_int_array+0]    ; x
+    call draw_2x2
+    add sp, 6
+
+    ; bottom right corner
+    push word [tri_2d_int_array+10]   ; color
+    push word [tri_2d_int_array+8]    ; y
+    push word [tri_2d_int_array+6]    ; x
+    call draw_2x2
+    add sp, 6
+
+    ; Top left corner
+    push word [tri_2d_int_array+16]   ; color
+    push word [tri_2d_int_array+14]    ; y
+    push word [tri_2d_int_array+12]    ; x
+    call draw_2x2
+    add sp, 6
+
+
+    ; draw every pixel below the line connecting top left and bottom right
+
+
+    ;
+    ; get slope from point 3 to point 1
+    ;
+
+    ; delta x
+    mov ax, [tri_2d_int_array+6]
+    sub ax, [tri_2d_int_array+12]
+    ; delta y
+    mov bx, [tri_2d_int_array+8]
+    sub bx, [tri_2d_int_array+14]
+
+    ; slope using integers
+    call slope_calc_100
+    ; slope = si / 100
+
+
+    ; Draw top line
+    push ax
+    push bx
+
+    fild word [bp - 4] ; dy = ST 1
+    fild word [bp - 2] ; dx = ST 0
+
+    fdiv  ; ST(0) = ST(1) / ST(0) ?
+
+
+    fistp dword [slope_float]     ; Convert and pop ST(0)
+
+    ; pop into memory for display
+    fistp word [slope_int]     ; Convert and pop ST(0)
+    mov di, word [slope_int]   
+
+    pop bx
+    pop ax
+
+
+
+    ; start drawing pixels at si
+    ; mov di, si
+
+
+
+
+
+    mov ax, 0xA000
+    mov es, ax
+
+    mov dx, 0xF900 ; Don't draw until before end for end of render clarity
+
+    ; mov ax, [tri_2d_int_array+4] ; color of first triangle
+    mov ax, 0x12
+    .loop_start:
+    mov [es:di], al
+    inc di
+
+    ; Split screen diagonally
+
+
+    ; ONLY works if set to 'not equal'!
+    ; spent an hour trying to use jle/jge but was only ableto draw top or bottom half of screen....
+    cmp word di, dx
+    ; jne .loop_start
+    ; http://unixwiz.net/techtips/x86-jumps.html
+    ; keep looping as long as di is less than dx
+    ; UNSIGNED, and CARRY DETECTED as dx is greater??
+    jb .loop_start
+    
+    .loop_end:
+
+
+    mov sp, bp
+    pop bp
+    ; popa
+    ret
+draw_triangle_end:
+
+
+; in: ax = 16 bit number
+print_word_as_hex:
+
+
+    ret
+print_word_as_hex_end:
+
+; fn    :   Returns the slope of the delta x & y.
+; in    :   ax = delta x
+;           bx = delta y
+; ret   :   si = slope * 100 (dy/dx*100)
+; modreg:   
+slope_calc_100:
+    push cx
+    push dx
+
+    mov si, 0x0000
+        mov dx, bx
+        imul dx, 100
+        ; count number of dx in dy*100
+        mov cx, 0
+    .slope_calc_loop:
+        add cx, ax
+        inc si
+        cmp cx, dx
+        jle .slope_calc_loop
+    .slope_calc_loop_end:
+
+    pop dx
+    pop cx
+    ret
+slope_calc_100_end:
+
+
+
 show_current_ascii_press:
     cmp word [ascii_current_press], 0
     je .write_current_press_end
@@ -96,12 +238,102 @@ draw_player_position:
 
 print_available_chars:
 
+    mov ax, '0'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 10             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+
+    mov ax, '1'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 20             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '2'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push word 190           ; y
+    push word 30            ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '3'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 40             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+     mov ax, '4'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 40             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '5'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push word 190           ; y
+    push word 50            ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '6'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 60             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '6'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 70             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+     mov ax, '7'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 80             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '8'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push word 190           ; y
+    push word 90            ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, '9'
+    call char_ascii_to_bitmap_address
+    push ax          ; Letter address
+    push 190            ; y
+    push 100             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+
     mov ax, 'A'
     call char_ascii_to_bitmap_address
     ; mov si, ax          ; Letter address
     push ax          ; Letter address
     push 190            ; y
-    push 10             ; x
+    push 110             ; x
     call write_char_from_bitmap_address
     add sp, 6
 
@@ -110,7 +342,7 @@ print_available_chars:
     ; mov si, char_B          ; Letter address
     push ax          ; Letter address
     push word 190           ; y
-    push word 20            ; x
+    push word 120            ; x
     call write_char_from_bitmap_address
     add sp, 6
 
@@ -119,7 +351,34 @@ print_available_chars:
     mov si, char_C      ; Letter address
     push ax          ; Letter address
     push 190            ; y
-    push 30             ; x
+    push 130             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+     mov ax, 'D'
+    call char_ascii_to_bitmap_address
+    ; mov si, ax          ; Letter address
+    push ax          ; Letter address
+    push 190            ; y
+    push 140             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, 'E'
+    call char_ascii_to_bitmap_address
+    ; mov si, char_B          ; Letter address
+    push ax          ; Letter address
+    push word 190           ; y
+    push word 150            ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    mov ax, 'F'
+    call char_ascii_to_bitmap_address
+    mov si, char_C      ; Letter address
+    push ax          ; Letter address
+    push 190            ; y
+    push 160             ; x
     call write_char_from_bitmap_address
     add sp, 6
 
@@ -209,6 +468,57 @@ write_ascii_char_at_cursor:
 ; input     : ax = char ascii value
 ; return    : ax = bitmap address
 char_ascii_to_bitmap_address:
+
+.0: cmp ax, 0x30
+    jne .1
+    mov ax, char_0
+    jmp .done
+
+.1: cmp ax, 0x31
+    jne .2
+    mov ax, char_1
+    jmp .done
+
+.2: cmp ax, 0x32
+    jne .3 
+    mov ax, char_2
+    jmp .done
+
+.3: cmp ax, 0x33
+    jne .4 
+    mov ax, char_3
+    jmp .done
+
+.4: cmp ax, 0x34
+    jne .5 
+    mov ax, char_4
+    jmp .done
+
+.5: cmp ax, 0x35
+    jne .6
+    mov ax, char_5
+    jmp .done
+
+.6: cmp ax, 0x36
+    jne .7
+    mov ax, char_6
+    jmp .done
+
+.7: cmp ax, 0x37
+    jne .8
+    mov ax, char_7
+    jmp .done
+
+.8: cmp ax, 0x38
+    jne .9 
+    mov ax, char_8
+    jmp .done
+
+.9: cmp ax, 0x39
+    jne .A
+    mov ax, char_9
+    jmp .done
+
 .A: cmp ax, 0x41
     jne .B
     mov ax, char_A
@@ -220,11 +530,24 @@ char_ascii_to_bitmap_address:
     jmp .done
 
 .C: cmp ax, 0x43
-    jne .default ; NOTE THE CUSTOM END OF SWITCHING!
+    jne .D 
     mov ax, char_C
     jmp .done
 
-.D:
+.D: cmp ax, 0x44
+    jne .E 
+    mov ax, char_D
+    jmp .done
+
+.E: cmp ax, 0x45
+    jne .F 
+    mov ax, char_E
+    jmp .done
+
+.F: cmp ax, 0x46
+    jne .default ; NOTE THE CUSTOM END OF SWITCHING!
+    mov ax, char_F
+    jmp .done
 
 .default:
     mov ax, char_default
@@ -232,7 +555,7 @@ char_ascii_to_bitmap_address:
 
 .done:
     ret
-
+char_ascii_to_bitmap_address_end:
 
 ; routine is heavily commented for the sake of learning!
 write_char_from_bitmap_address:
@@ -278,101 +601,7 @@ write_char_from_bitmap_address:
     mov sp, bp
     pop bp
     ret
-write_a_end:
-
-
-draw_triangle:
-    ; pusha
-
-    ; Bottom left corner
-    push word [tri_2d_int_array+4]   ; color
-    push word [tri_2d_int_array+2]    ; y
-    push word [tri_2d_int_array+0]    ; x
-    call draw_2x2
-    add sp, 6
-
-    ; bottom right corner
-    push word [tri_2d_int_array+10]   ; color
-    push word [tri_2d_int_array+8]    ; y
-    push word [tri_2d_int_array+6]    ; x
-    call draw_2x2
-    add sp, 6
-
-    ; Top left corner
-    push word [tri_2d_int_array+16]   ; color
-    push word [tri_2d_int_array+14]    ; y
-    push word [tri_2d_int_array+12]    ; x
-    call draw_2x2
-    add sp, 6
-
-
-    ; draw every pixel below the line connecting top left and bottom right
-
-
-    ;
-    ; get slope from point 3 to point 1
-    ;
-
-    ; delta x
-    mov ax, [tri_2d_int_array+6]
-    sub ax, [tri_2d_int_array+12]
-    ; delta y
-    mov bx, [tri_2d_int_array+8]
-    sub bx, [tri_2d_int_array+14]
-
-    ; slope using integers
-    ; slope = si / 10
-    mov si, 0x0000
-    mov dx, bx
-    imul dx, 10
-    ; count number of dx in dy*10
-    mov cx, 0
-.slope_calc_loop:
-    add cx, ax
-    inc si
-    cmp cx, dx
-    jle .slope_calc_loop
-.slope_calc_loop_end:
-
-    ; start drawing pixels at si
-    mov di, si
-
-
-
-
-    mov ax, 0xA000
-    mov es, ax
-    ; xor ax, ax
-    ; mov ax, 0x0000
-    ; mov di, 0x0000
-    ; imul di, 320
-    ; mov di, dx
-    mov dx, 0xF900
-    ; mov dx, 320*200
-
-    ; mov ax, [tri_2d_int_array+4] ; color of first triangle
-    mov ax, 0x12
-    .loop_start:
-    inc di
-    mov [es:di], al
-
-    ; Split screen diagonally
-
-
-    ; ONLY works if set to 'not equal'!
-    ; spent an hour trying to use jle/jge but was only ableto draw top or bottom half of screen....
-    cmp word di, dx
-    ; jne .loop_start
-    ; http://unixwiz.net/techtips/x86-jumps.html
-    ; keep looping as long as di is less than dx
-    ; UNSIGNED, and CARRY DETECTED as dx is greater??
-    jb .loop_start
-    
-    .loop_end:
-
-    ; popa
-    ret
-draw_triangle_end:
+write_char_from_bitmap_address_end:
 
 
 

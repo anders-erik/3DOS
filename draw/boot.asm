@@ -54,7 +54,7 @@ boot_sector:
 
     ; Load second stage     : sector # 2-5 = 0x7e00 - 0x85FF
     mov ah, 0x02            ; BIOS read sector function
-    mov al, 4               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL IN MOVING BEYOND BOOT SECTOR
+    mov al, 8               ; Number of sectors to read -- INCREASING THIS WAS CRUCIAL IN MOVING BEYOND BOOT SECTOR
     mov ch, 0               ; Cylinder number
     mov cl, 2               ; Sector number (1 is boot sector)
     mov dh, 0               ; Head number
@@ -65,14 +65,14 @@ boot_sector:
     ; Load data             : sector # 6   = 0x0x8600 - 0x87FF
     ; This section will automatically be
     mov ah, 0x02            ; BIOS read sector function
-    mov al, 1               ; Number of sectors to read
+    mov al, 2               ; Number of sectors to read
     mov ch, 0               ; Cylinder number
-    mov cl, 6               ; Sector number (2-5 is code)
+    mov cl, 10              ; Sector number (2-9 is code)
     mov dh, 0               ; Head number
     mov dl, 0x80            ; Drive number (first hard disk)
     ; mov ax, 0x0000
     ; mov es, ax          ; segment
-    mov bx, 0x8600          ; Where to load the sector
+    mov bx, 0x8E00          ; make sure data sectors at the end of the main text sections 
     int 0x13                ; BIOS interrupt to read disk
     
     
@@ -409,7 +409,7 @@ keyboard_handler:
     
     .key_flag_done:
     
-    call float_test
+    ; call float_tests
 
 
 keyboard_handler_done:
@@ -422,6 +422,57 @@ keyboard_handler_done:
 store_ascii_pressed:
     ; mov ax, word [key_code_al]
 
+
+._0: cmp ax, 0x0B
+    jne ._1 
+    mov word [ascii_current_press], '0'
+    jmp .match
+
+._1: cmp ax, 0x02
+    jne ._2
+    mov word [ascii_current_press], '1'
+    jmp .match
+
+._2: cmp ax, 0x03
+    jne ._3
+    mov word [ascii_current_press], '2'
+    jmp .match
+
+._3: cmp ax, 0x04
+    jne ._4
+    mov word [ascii_current_press], '3'
+    jmp .match
+
+._4: cmp ax, 0x05
+    jne ._5
+    mov word [ascii_current_press], '4'
+    jmp .match
+
+._5: cmp ax, 0x06
+    jne ._6
+    mov word [ascii_current_press], '5'
+    jmp .match
+
+._6: cmp ax, 0x07
+    jne ._7 
+    mov word [ascii_current_press], '6'
+    jmp .match
+
+._7: cmp ax, 0x08
+    jne ._8
+    mov word [ascii_current_press], '7'
+    jmp .match
+
+._8: cmp ax, 0x09
+    jne ._9
+    mov word [ascii_current_press], '8'
+    jmp .match
+
+._9: cmp ax, 0x0A
+    jne .a
+    mov word [ascii_current_press], '9'
+    jmp .match
+
 .a: cmp ax, 30
     jne .b
     mov word [ascii_current_press], 'A'
@@ -433,17 +484,28 @@ store_ascii_pressed:
     jmp .match
 
 .c: cmp ax, 0x2E
-    jne .d ; NOTE THE CUSTOM END OF SWITCHING!
+    jne .d
     mov word [ascii_current_press], 'C'
     jmp .match
 
+.d: cmp ax, 32
+    jne .e
+    mov word [ascii_current_press], 'D'
+    jmp .match
 
-.d: 
+.e: cmp ax, 18
+    jne .f
+    mov word [ascii_current_press], 'E'
+    jmp .match
+
+.f: cmp ax, 33
+    jne .no_match ; NOTE THE CUSTOM END OF SWITCHING!
+    mov word [ascii_current_press], 'F'
+    jmp .match
 
 .no_match:
     mov word [ascii_current_press], 0x00
     jmp .done
-
 
 
 .match:
@@ -708,23 +770,33 @@ float_test:
     fld dword [float_2]    ; ST(0) = float_2, ST(1) = float_1
     fld dword [float_3]    ; ST(0) = float_3, ST(1) = float_2, ST(2) = float_1
 
+    ; what happens if stack is filled?
+    fild word [tri_2d_int_array]
+
+
     ; fxch ; Swaps spot 0 and 1 ??
 
     ; operations
-    fadd                  ; ST(0) = ST(0) + ST(1)
+    ; fadd                  ; ST(0) = ST(0) + ST(1)
     ; fadd ST(1)     ; ST(0) = ST(0) + ST(1)
     ; fadd
-    ; fmul                  ; ST(1) = ST(0) * ST(1)
+    fmul                  ; ST(1) = ST(0) * ST(1)
     ; fdiv                    ; ST(1) = ST(0) / ST(1)
 
     ; ; pop the FPU stack into memory
     ; fstp dword [float_res]
+    
 
     ; ; push/load from memory onto FPU stack
     ; fld dword [float_res]   ; Load 'result' back into ST(0)
 
     ; Convert to integer and store in 'integer_result'
     fistp word [integer_res] ; Convert and pop ST(0)
+
+    ; Clear stack?
+    ; Realistically does nothing..
+    fstp
+    fstp
 
     ; Draw pixel
     mov ax, 0xA000
@@ -739,7 +811,7 @@ float_test:
 %include "./draw/keyboard.asm"
 code_segment_end:
 
-times 2048-(code_segment_end - code_segment) db 0
+times 4096-(code_segment_end - code_segment) db 0
 
 
 
@@ -747,7 +819,10 @@ section .data
 ; %include "./draw/data.asm"
 ; my_data equ 0x0900
 my_data:
-tri_2d_int_array dw 100, 80, 0, 150, 80, 0, 100, 40, 0
+tri_2d_int_array dw 100, 80, 0, 150, 80, 0, 140, 10, 0
+slope_float dd 0
+slope_int dw 0
+
 test_var dw 1000
 
 ; Testing floating point numbers
@@ -756,6 +831,99 @@ float_2 dd 5.71
 float_3 dd 20.22
 float_res dd 0.0
 integer_res dw 0
+
+
+
+
+char_0    db 01111110b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 01111110b
+
+char_1    db 00011000b
+          db 00011000b
+          db 00011000b
+          db 00011000b
+          db 00011000b
+          db 00011000b
+          db 00011000b
+          db 00011000b
+
+char_2    db 11111111b
+          db 00000001b
+          db 00000001b
+          db 11111111b
+          db 10000000b
+          db 10000000b
+          db 10000000b
+          db 11111111b
+
+char_3    db 11111110b
+          db 00000001b
+          db 00000001b
+          db 00011111b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 11111110b
+
+char_4    db 10000001b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+
+char_5    db 11111111b
+          db 10000000b
+          db 10000000b
+          db 11111111b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 11111111b
+
+char_6    db 11111111b
+          db 10000000b
+          db 10000000b
+          db 10000000b
+          db 11111111b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+
+char_7    db 11111111b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+
+char_8    db 11111111b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+
+char_9    db 11111111b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+          db 00000001b
+          db 00000001b
+          db 00000001b
+          db 01111110b
 
 
 char_A    db 00011000b
@@ -784,6 +952,33 @@ char_C    db 11111111b
           db 10000000b
           db 10000001b
           db 11111111b
+
+char_D    db 11111110b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 11111110b
+
+char_E    db 11111111b
+          db 10000000b
+          db 10000000b
+          db 11111100b
+          db 10000000b
+          db 10000000b
+          db 10000000b
+          db 11111111b
+
+char_F    db 11111111b
+          db 10000000b
+          db 10000000b
+          db 11111100b
+          db 10000000b
+          db 10000000b
+          db 10000000b
+          db 10000000b
 
 char_default  db 10101010b
           db 10101010b
