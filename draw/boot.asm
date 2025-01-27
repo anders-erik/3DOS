@@ -800,7 +800,7 @@ float_test:
     fstp
 
     ; Draw pixel
-    mov ax, 0xA000
+    mov ax, VIDEO_D_BUFFER
     mov es, ax
     mov di, word [integer_res]
     mov word [es:di], 0x0F0F

@@ -1,9 +1,12 @@
+; Double buffering segment
+VIDEO_D_BUFFER equ 0x7000
+
 section   .text
 
 render:
     push bp
     mov bp, sp
-
+    
     ; pusha
     call clear
     ; call clear_screen_old
@@ -13,13 +16,13 @@ render:
 
     ; hlt
 
-    call draw_wasd_input
+    ; call draw_wasd_input
 
     ; call draw_tests
     ; call draw_large_square
-    call mode_13h_pixel_draw
+    ; call mode_13h_pixel_draw
     call draw_input_incrementing_pixel
-    call draw_keycode_coords ; uses interrupts 
+    ; call draw_keycode_coords ; uses interrupts 
     call extern_pixels
     call simple_pixel
 
@@ -44,12 +47,83 @@ render:
     ; mov ax, 0xfa74
     ; call print_hex_value
 
+    call swap_buffer
 
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
     ; popa
     ret
+    
+; First attempt to reduce flickering by swapping
+swap_buffer:
+    ; pusha
 
+    ; draw six pixels to second buffer
+    mov ax, 0x7000
+    mov es, ax
+    mov di, 642
+    mov word [es:di], 0x0F0F
+    mov di, 644
+    mov word [es:di], 0x0F0F
+    mov di, 646
+    mov word [es:di], 0x0F0F
+    mov di, 648
+    mov word [es:di], 0x0F0F
+    mov di, 650
+    mov word [es:di], 0x0F0F
+
+    ; cli
+    push ds
+
+    call wait_for_vsync
+    
+    mov ax, 0x7000
+    mov es, ax
+
+    mov ax, 0xA000
+    mov ds, ax
+
+    xor di, di
+    xor si, si
+    mov cx, 64000
+    mov dx, 64000
+    ; xor cx, cx
+    ; xor si, si
+    .loop_1:
+
+    mov al, byte [es:si]
+    mov byte [ds:di], al
+
+    ; rep movsw
+    inc si
+    inc di
+    ; sli
+    cmp si, dx
+    jb .loop_1
+    ; DEBUG
+    ; cli
+    ; hlt
+
+    pop ds
+
+
+
+    ; popa
+    ret
+swap_buffer_end:
+
+; Attempt to avoid writing to framebuffer during render
+wait_for_vsync:
+    mov dx, 0x03DA     ; VGA input status register
+vsync_start:
+    in al, dx          ; Read the status
+    test al, 0x08      ; Check vertical retrace bit (bit 3)
+    jz vsync_start     ; Wait until retrace starts
+vsync_end:
+    in al, dx
+    test al, 0x08
+    jnz vsync_end      ; Wait until retrace ends
+    ret
 
 ; Draws a triangle outline based on the 'tri_2d_int_array' array
 ;
@@ -85,7 +159,7 @@ draw_triangle:
     push word [tri_2d_int_array+0] ; x_0
     call draw_line
     add sp, 8
-
+    ffree st1
     ;
     ; Draw line from point 1 to point 3
     ;
@@ -264,7 +338,8 @@ draw_line:
 
     mov sp, bp
     pop bp
-    res
+    ret
+
 draw_line_end:
 
 
@@ -283,7 +358,7 @@ pixel_xa_yb:
     push es ; video memory segment
     push di ; offset
 
-    mov cx, 0xA000 ; cx is a temp leave ax/bx untouched
+    mov cx, VIDEO_D_BUFFER ; cx is a temp leave ax/bx untouched
     mov es, cx
     xor cx, cx
 
@@ -834,7 +909,7 @@ write_char_from_bitmap_address:
     mov si, [bp+8]
 
     ; set up buffer segment
-    mov ax, 0xA000
+    mov ax, VIDEO_D_BUFFER
     mov es, ax
 
 
@@ -882,7 +957,7 @@ draw_2x2:
     push bp
     mov bp, sp ; can't use stack pointer for effective address calculation
     
-    mov ax, 0xA000         ; Segment for video memory
+    mov ax, VIDEO_D_BUFFER         ; Segment for video memory
     mov es, ax             ; Point ES to video memory
 
     ; Set color
@@ -1098,7 +1173,7 @@ simple_pixel:
 
 clear:
     ; clear screen using graphics mode writing directly to video buffer
-    mov ax, 0xA000         ; Segment for graphics video memory
+    mov ax, VIDEO_D_BUFFER         ; Segment for graphics video memory
     mov es, ax             ; Point ES to video memory
     mov di, 0              ; Start at the top-left corner
     mov cx, 320 * 200 / 2  ; rep stosw increments two bytes per iteration
@@ -1152,7 +1227,7 @@ draw_square:
     mov [sq_cc], si
 
 ; video segment
-    mov ax, 0xA000
+    mov ax, VIDEO_D_BUFFER
     mov es, ax
 
 
@@ -1206,7 +1281,7 @@ pixel_x_cx_y_dx_c_si:
     mov [yy], bx
     mov [cc], si
 
-    mov ax, 0xA000         ; Segment for video memory
+    mov ax, VIDEO_D_BUFFER         ; Segment for video memory
     mov es, ax             ; Point ES to video memory
 
 
@@ -1231,7 +1306,7 @@ extern_pixels:
     ; add ax, (320 * 50 + 50)
     ; mov [ax]
     
-    mov ax, 0xA000         ; Segment for video memory
+    mov ax, VIDEO_D_BUFFER         ; Segment for video memory
     mov es, ax             ; Point ES to video memory
 
     mov di, (320 * 51 + 51) ; Offset for pixel at (100, 50)
