@@ -284,6 +284,7 @@ timer_setup:
 
     ; minimum : https://en.wikibooks.org/wiki/X86_Assembly/Programmable_Interval_Timer
     mov ax, 65535 ; ( ~= 1193180 / 18.2)
+    ; mov ax, 39773 ; ( ~= 1193180 / 30 )
     out PIT_CHANNEL_0, al       ; Low byte
     mov al, ah
     out PIT_CHANNEL_0, al       ; High byte
@@ -819,7 +820,8 @@ section .data
 ; %include "./draw/data.asm"
 ; my_data equ 0x0900
 my_data:
-tri_2d_int_array dw 100, 80, 0, 150, 80, 0, 140, 10, 0
+; x, y, c
+tri_2d_int_array dw 20, 60, 0, 150, 80, 0, 120, 30, 0
 slope_float dd 0
 slope_int dw 0
 
@@ -833,7 +835,7 @@ float_res dd 0.0
 integer_res dw 0
 
 
-
+hex_print_table: db "0123456789ABCDEF"
 
 char_0    db 01111110b
           db 10000001b
@@ -845,13 +847,13 @@ char_0    db 01111110b
           db 01111110b
 
 char_1    db 00011000b
-          db 00011000b
-          db 00011000b
-          db 00011000b
-          db 00011000b
-          db 00011000b
-          db 00011000b
-          db 00011000b
+          db 00001000b
+          db 00001000b
+          db 00001000b
+          db 00001000b
+          db 00001000b
+          db 00001000b
+          db 00111110b
 
 char_2    db 11111111b
           db 00000001b
@@ -900,12 +902,12 @@ char_6    db 11111111b
 
 char_7    db 11111111b
           db 00000001b
-          db 00000001b
-          db 00000001b
-          db 00000001b
-          db 00000001b
-          db 00000001b
-          db 00000001b
+          db 00000010b
+          db 00000100b
+          db 00001000b
+          db 00001000b
+          db 00001000b
+          db 00001000b
 
 char_8    db 11111111b
           db 10000001b
@@ -926,14 +928,14 @@ char_9    db 11111111b
           db 01111110b
 
 
-char_A    db 00011000b
-          db 00100100b
-          db 01000010b
-          db 01000010b
-          db 01111110b
-          db 01000010b
-          db 01000010b
-          db 01000010b
+char_A    db 01111110b
+          db 10000001b
+          db 10000001b
+          db 10000001b
+          db 11111111b
+          db 10000001b
+          db 10000001b
+          db 10000001b
 
 char_B    db 11111110b
           db 10000010b

@@ -40,6 +40,10 @@ render:
 
     call print_available_chars
 
+    ; mov ax, 0x1234
+    ; mov ax, 0xfa74
+    ; call print_hex_value
+
 
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
@@ -47,41 +51,58 @@ render:
     ret
 
 
-
+; Draws a triangle outline based on the 'tri_2d_int_array' array
+;
+; No inputs nor outputs; only reading the fixed data array
 draw_triangle:
     ; pusha
     push bp
     mov bp, sp
 
-    ; Bottom left corner
-    push word [tri_2d_int_array+4]   ; color
-    push word [tri_2d_int_array+2]    ; y
-    push word [tri_2d_int_array+0]    ; x
-    call draw_2x2
-    add sp, 6
+    ; P1 : Upper left corner
+    mov bx, word [tri_2d_int_array+2]    ; y
+    mov ax, word [tri_2d_int_array+0]    ; x
+    call pixel_xa_yb
+    ; add sp, 6
 
-    ; bottom right corner
-    push word [tri_2d_int_array+10]   ; color
-    push word [tri_2d_int_array+8]    ; y
-    push word [tri_2d_int_array+6]    ; x
-    call draw_2x2
-    add sp, 6
+    ; P2 : top right corner
+    mov bx, word [tri_2d_int_array+8]    ; y
+    mov ax, word [tri_2d_int_array+6]    ; x
+    call pixel_xa_yb
 
-    ; Top left corner
-    push word [tri_2d_int_array+16]   ; color
-    push word [tri_2d_int_array+14]    ; y
-    push word [tri_2d_int_array+12]    ; x
-    call draw_2x2
-    add sp, 6
-
-
-    ; draw every pixel below the line connecting top left and bottom right
+    ; P3 : Bottom left corner
+    mov bx, word [tri_2d_int_array+14]    ; y
+    mov ax, word [tri_2d_int_array+12]    ; x
+    call pixel_xa_yb
 
 
     ;
-    ; get slope from point 3 to point 1
+    ; Draw line from point 1 to point 2
+    ;
+    push word [tri_2d_int_array+8] ; y_1
+    push word [tri_2d_int_array+6] ; x_1
+    push word [tri_2d_int_array+2] ; y_0
+    push word [tri_2d_int_array+0] ; x_0
+    call draw_line
+    add sp, 8
+
+    ;
+    ; Draw line from point 1 to point 3
+    ;
+    push word [tri_2d_int_array+14] ; y_1
+    push word [tri_2d_int_array+12] ; x_1
+    push word [tri_2d_int_array+2] ; y_0
+    push word [tri_2d_int_array+0] ; x_0
+    call draw_line
+    add sp, 8
+
+    ;
+    ; Draw line from point 3 to point 2
     ;
 
+
+    ; DELTAS
+    ;
     ; delta x
     mov ax, [tri_2d_int_array+6]
     sub ax, [tri_2d_int_array+12]
@@ -89,64 +110,68 @@ draw_triangle:
     mov bx, [tri_2d_int_array+8]
     sub bx, [tri_2d_int_array+14]
 
-    ; slope using integers
-    call slope_calc_100
-    ; slope = si / 100
-
-
-    ; Draw top line
+    ; Add delta as constants for the rest of point 3 to point 2
     push ax
     push bx
-
-    fild word [bp - 4] ; dy = ST 1
-    fild word [bp - 2] ; dx = ST 0
-
-    fdiv  ; ST(0) = ST(1) / ST(0) ?
-
-
-    fistp dword [slope_float]     ; Convert and pop ST(0)
-
-    ; pop into memory for display
-    fistp word [slope_int]     ; Convert and pop ST(0)
-    mov di, word [slope_int]   
-
-    pop bx
-    pop ax
-
-
-
-    ; start drawing pixels at si
-    ; mov di, si
-
-
-
-
-
-    mov ax, 0xA000
-    mov es, ax
-
-    mov dx, 0xF900 ; Don't draw until before end for end of render clarity
-
-    ; mov ax, [tri_2d_int_array+4] ; color of first triangle
-    mov ax, 0x12
-    .loop_start:
-    mov [es:di], al
-    inc di
-
-    ; Split screen diagonally
-
-
-    ; ONLY works if set to 'not equal'!
-    ; spent an hour trying to use jle/jge but was only ableto draw top or bottom half of screen....
-    cmp word di, dx
-    ; jne .loop_start
-    ; http://unixwiz.net/techtips/x86-jumps.html
-    ; keep looping as long as di is less than dx
-    ; UNSIGNED, and CARRY DETECTED as dx is greater??
-    jb .loop_start
     
-    .loop_end:
 
+    ; SLOPE
+    ;
+    mov ax, word [bp - 2]
+    mov bx, word [bp - 4]
+    call slope_100
+    ; slope returned in dx
+    push dx ; persist the slope100
+    mov di, [bp - 6]
+
+    ; print slope
+    push ax
+    mov ax, dx
+    call print_hex_value
+    pop ax
+    ; draw points between point 3 and 2
+    ; starting at point 3
+
+    ; push ax ; delta x
+
+    mov cx, 0; x index
+    .line_next_step:
+    inc cx
+    
+    ; starting values
+    mov ax, word [tri_2d_int_array+12] ; x
+    mov bx, word [tri_2d_int_array+14] ; y
+
+    ; increment x coord
+    add ax, cx
+
+    ; multiply x offset by slope
+    push cx ; [pb - 8] = x offset from origin point
+    fild word [bp - 8]
+    fild word [bp - 6] ; slope100
+    fmul
+    add sp, 2 ; remove x offset
+    push word 100 ; [pb - 8] = slope multiplier
+    fild word [bp - 8]
+    fdiv
+    fistp word [bp - 8]
+    mov dx, word [bp - 8]
+    add sp, 2     ; clear slope multiplier
+
+
+
+    add bx, dx
+
+    call pixel_xa_yb
+
+    cmp cx, [bp - 2]
+    jle .line_next_step
+
+    
+    
+    add sp, 6
+
+    
 
     mov sp, bp
     pop bp
@@ -155,19 +180,181 @@ draw_triangle:
 draw_triangle_end:
 
 
-; in: ax = 16 bit number
-print_word_as_hex:
+
+;   fn: DRAW_LINE
+;
+;   y_1 = bp + 10
+;   x_1 = bp + 8
+;   y_0 = bp + 6
+;   x_0 = bp + 4
+;
+draw_line:
+    push bp
+    mov bp, sp
+
+    ; DELTAS
+    ;
+    ; delta x
+    mov ax, [bp + 8]
+    sub ax, [bp + 4]
+    ; delta y
+    mov bx, [bp + 10]
+    sub bx, [bp + 6]
+
+    ; Add delta as constants for the rest of point 3 to point 2
+    push ax
+    push bx
+    
+
+    ; SLOPE
+    ;
+    mov ax, word [bp - 2]
+    mov bx, word [bp - 4]
+    call slope_100
+    ; slope returned in dx
+    push dx ; persist the slope100
+    mov di, [bp - 6]
+
+    ; print slope
+    push ax
+    mov ax, dx
+    call print_hex_value
+    pop ax
+    ; draw points between point 3 and 2
+    ; starting at point 3
+
+    ; push ax ; delta x
+
+    mov cx, 0; x index
+    .line_next_step:
+    inc cx
+    
+    ; starting values
+    mov ax, word [bp + 4] ; x
+    mov bx, word [bp + 6] ; y
+
+    ; increment x coord
+    add ax, cx
+
+    ; multiply x offset by slope
+    push cx ; [pb - 8] = x offset from origin point
+    fild word [bp - 8]
+    fild word [bp - 6] ; slope100
+    fmul
+    add sp, 2 ; remove x offset
+    push word 100 ; [pb - 8] = slope multiplier
+    fild word [bp - 8]
+    fdiv
+    fistp word [bp - 8]
+    mov dx, word [bp - 8]
+    add sp, 2     ; clear slope multiplier
 
 
+
+    add bx, dx
+
+    call pixel_xa_yb
+
+    cmp cx, [bp - 2]
+    jle .line_next_step
+
+    
+    
+    add sp, 6
+
+    mov sp, bp
+    pop bp
+    res
+draw_line_end:
+
+
+
+; fn: PIXEL_XA_YB
+;
+; Draws pixel WITHOUT register or stack side effects.
+; Color: white
+; Coordinate system: right handed with origin botton left
+; input:
+;       ax : x location
+;       bx : y location
+pixel_xa_yb:
+    push cx ; x index
+    push dx ; y index
+    push es ; video memory segment
+    push di ; offset
+
+    mov cx, 0xA000 ; cx is a temp leave ax/bx untouched
+    mov es, cx
+    xor cx, cx
+
+    mov dx, 200
+    sub dx, bx
+
+    mov cx, ax
+
+    mov di, 320
+    imul di, dx
+    add di, cx
+
+    mov byte [es:di], 0x0F
+    
+    pop di
+    pop es
+    pop dx
+    pop cx
     ret
-print_word_as_hex_end:
+pixel_xa_yb_end:
+
+
+
+
+
+; fn    :   Returns the slope of the delta x & y.
+; in    :   ax = delta x
+;           bx = delta y
+; ret   :   dx = slope * 100 (dy/dx*100)
+; modreg:   
+slope_100:
+    push bp
+    mov bp, sp
+
+    push ax     ; delta x
+    push bx     ; delta y
+    push word 100
+    sub sp, 2   ; slope integer
+
+    fild word [bp - 4] ; dy = ST 1
+    fild word [bp - 2] ; dx = ST 0
+
+    fdiv  ; ST(0) = ST(1) / ST(0) ?
+
+    fild word [bp - 6] ; 100 multiplier
+
+    fmul
+
+    ; fistp dword [slope_float]     ; Convert and pop ST(0)
+
+    ; pop into memory, then into ax for resturn
+    fistp word [bp - 8]
+    mov dx, word [bp - 8]   
+
+    
+    add sp, 2 ;reset local variable
+    add sp, 2 ;
+    pop bx ; delta y
+    pop ax ; delta x
+
+    mov sp, bp
+    pop bp
+    ret
+slope_100_end:
 
 ; fn    :   Returns the slope of the delta x & y.
 ; in    :   ax = delta x
 ;           bx = delta y
 ; ret   :   si = slope * 100 (dy/dx*100)
 ; modreg:   
-slope_calc_100:
+slope_calc_100_old_int:
     push cx
     push dx
 
@@ -186,7 +373,7 @@ slope_calc_100:
     pop dx
     pop cx
     ret
-slope_calc_100_end:
+slope_calc_100_old_int_end:
 
 
 
@@ -228,7 +415,7 @@ a2x2_cluster:
     ret
 
 draw_player_position:
-    push 0x01   ; color
+    push 0x02   ; color
     push word [player_position_y]    ; y
     push word [player_position_x]    ; x
     call draw_2x2
@@ -236,11 +423,92 @@ draw_player_position:
     ret
 
 
+; fn: prints the 16-bit value as hex number in screen low right corner
+; in: ax = word-width value to print
+print_hex_value:
+    push bp
+    mov bp, sp
+
+    ; Store the original value to be printed
+    push ax
+
+
+    ; word_l, low nibble
+    mov si, [bp - 2]
+    shl si, 12
+    shr si, 12
+    mov bl, byte [hex_print_table + si]
+    xor bh, bh
+
+    mov ax, bx
+    call char_ascii_to_bitmap_address
+    push ax             ; char address
+    push 190            ; y
+    push 310             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+
+    ; word_l, high nibble
+    mov si, [bp - 2]
+    shl si, 8
+    shr si, 12
+    mov bl, byte [hex_print_table + si]
+    xor bh, bh
+
+    mov ax, bx
+    call char_ascii_to_bitmap_address
+    push ax             ; char address
+    push 190            ; y
+    push 300             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    ; word_h, low nibble
+    mov si, [bp - 2]
+    shl si, 4
+    shr si, 12
+    mov bl, byte [hex_print_table + si]
+    xor bh, bh
+
+    mov ax, bx
+    call char_ascii_to_bitmap_address
+    push ax             ; char address
+    push 190            ; y
+    push 290             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+    ; word_h, high nibble
+    mov si, [bp - 2]
+    shl si, 0
+    shr si, 12
+    mov bl, byte [hex_print_table + si]
+    xor bh, bh
+
+    mov ax, bx
+    call char_ascii_to_bitmap_address
+    push ax             ; char address
+    push 190            ; y
+    push 280             ; x
+    call write_char_from_bitmap_address
+    add sp, 6
+
+
+    pop ax
+
+    mov sp, bp
+    pop bp
+    ret
+print_hex_value_end:
+
+
+
 print_available_chars:
 
     mov ax, '0'
     call char_ascii_to_bitmap_address
-    push ax          ; Letter address
+    push ax             ; char address
     push 190            ; y
     push 10             ; x
     call write_char_from_bitmap_address
