@@ -834,13 +834,28 @@ float_3 dd 20.22
 float_res dd 0.0
 integer_res dw 0
 
-; 12 bytes
+
+;   Triangulation!
+;   
+position dd 200.0, 80.0, 0.0
+;
+;
 ; Will hold the triangle points to be drawn next
+; 12 bytes
 current_triangle_pixels dw  140, 140, 190 ,140 ,140 ,190    ; x0, y0, x1, y1, x2, y2
+; Signed area values
+area_sign_1 dd 0
+area_sign_2 dd 0
+area_sign_3 dd 0
+;
+; GEOMETRY - fixed triangles that will be transformed and rendered
+; 
+; First triangle
 ; 36 bytes          ; x0, y0, z0  &  x1, y1, z1 & x2, y2, z2
-triangle_1  dd      50.0,   50.0,   0.0, \
-                    100.0,  50.0,   0.0, \
-                    50.0,   100.0,  0.0
+triangle_1  dd      60.0,   60.0,   0.0, \
+                    110.0,  60.0,   0.0, \
+                    60.0,   110.0,  0.0
+
 
 hex_print_table: db "0123456789ABCDEF"
 

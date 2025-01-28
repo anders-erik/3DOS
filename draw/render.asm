@@ -75,6 +75,9 @@ draw_current_triangle:
     mov bx, [si+10]
     call pixel_xa_yb
 
+
+    
+
     ret
 draw_current_triangle_end:
 
@@ -91,8 +94,45 @@ draw_triangle_1:
     push bp
     mov bp, sp
 
+    ; 1. Move triangle_1 points to current triangle
+    ; 2. apply position transformation
+ 
+    ; point 0
+    ; x
+    fld dword [triangle_1+0]
+    fld dword [position + 0]
+    faddp
+    fistp word [current_triangle_pixels+0]
+    ; y
+    fld dword [triangle_1+4]
+    fld dword [position + 4]
+    faddp
+    fistp word [current_triangle_pixels+2]
 
+    ; point 1
 
+    fld dword [triangle_1+12]
+    fld dword [position + 0]
+    faddp
+    fistp word [current_triangle_pixels+4]
+
+    fld dword [triangle_1+16]
+    fld dword [position + 4]
+    faddp
+    fistp word [current_triangle_pixels+6]
+
+    ; point 2
+    fld dword [triangle_1+24]
+    fld dword [position + 0]
+    faddp
+    fistp word [current_triangle_pixels+8]
+
+    fld dword [triangle_1+28]
+    fld dword [position + 4]
+    faddp
+    fistp word [current_triangle_pixels+10]
+
+    call draw_current_triangle
 
     mov sp, bp
     pop bp
