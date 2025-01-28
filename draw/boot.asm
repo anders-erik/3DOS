@@ -834,6 +834,13 @@ float_3 dd 20.22
 float_res dd 0.0
 integer_res dw 0
 
+; 12 bytes
+; Will hold the triangle points to be drawn next
+current_triangle_pixels dw  140, 140, 190 ,140 ,140 ,190    ; x0, y0, x1, y1, x2, y2
+; 36 bytes          ; x0, y0, z0  &  x1, y1, z1 & x2, y2, z2
+triangle_1  dd      50.0,   50.0,   0.0, \
+                    100.0,  50.0,   0.0, \
+                    50.0,   100.0,  0.0
 
 hex_print_table: db "0123456789ABCDEF"
 

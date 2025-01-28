@@ -49,12 +49,56 @@ render:
 
     call draw_sine
 
+    call draw_current_triangle
+    call draw_triangle_1
+
     call swap_buffer
 
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
     ; popa
     ret
+
+
+draw_current_triangle:
+    mov si, current_triangle_pixels
+
+    mov ax, [si+0]
+    mov bx, [si+2]
+    call pixel_xa_yb
+
+    mov ax, [si+4]
+    mov bx, [si+6]
+    call pixel_xa_yb
+
+    mov ax, [si+8]
+    mov bx, [si+10]
+    call pixel_xa_yb
+
+    ret
+draw_current_triangle_end:
+
+
+
+
+;--- draw_triangle_1 ---------
+; 
+;   Renders triangle_1 without transformations.
+;   1. moves triangle 1 data to current triangle
+;   2. render current triangle
+;   
+draw_triangle_1:
+    push bp
+    mov bp, sp
+
+
+
+
+    mov sp, bp
+    pop bp
+    ret
+draw_triangle_1_end:
+
 
 
 ;--- draw_sine ---------
