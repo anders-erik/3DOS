@@ -16,7 +16,7 @@ render:
 
     ; hlt
 
-    ; call draw_wasd_input
+    call draw_wasd_input
 
     ; call draw_tests
     ; call draw_large_square
@@ -47,16 +47,76 @@ render:
     ; mov ax, 0xfa74
     ; call print_hex_value
 
+    call draw_sine
+
     call swap_buffer
 
     mov sp, bp  ; return stack pointer
     pop bp      ; restore bp to callers value
     ; popa
     ret
+
+
+;--- draw_sine ---------
+; 
+;   Loops through integers in range [0, SCREEN_WIDTH].
+;   Maps each x-coord to sine function.
+;   Will print the y-coord
+draw_sine:
+    push bp
+    mov bp, sp
+
+    ; Local vars
+    sub sp, 2 ; x = [bp - 2]
+    sub sp, 2 ; y = [bp - 4]
+    mov word [bp - 2], 0
+
+    sub sp, 2 ; A = [bp - 6]
+    sub sp, 2 ; V = [bp - 8]
+    sub sp, 2 ; c = [bp - 10]
+    mov word [bp - 6], 20
+    mov word [bp - 8], 100
+    mov word [bp - 10], 10
+    
+    ; Loop through all x-coords
+    .next_x:
+
+    ;-------------------------
+    ;   Sine curve
+    ;   f(x) =  V + A*sin(x/c)
+    ;   RPN:    V A x c / sin * +
+    ;------------------------]
+    fild word [bp - 8]  ; V
+    fild word [bp - 6]  ; A
+    fild word [bp - 2]  ; x
+    fild word [bp - 10] ; c
+    fdivp
+    fsin
+    fmulp
+    faddp
+
+    fistp word [bp - 4] ; y
+    
+    ; Draw pixel
+    mov ax, word [bp - 2]
+    mov bx, word [bp - 4]
+    call pixel_xa_yb
+
+
+    inc word [bp - 2]
+    cmp word [bp - 2], 320
+    jb .next_x
+
+    mov sp, bp
+    pop bp
+    ret
+draw_sine_end:
     
 ; First attempt to reduce flickering by swapping
 swap_buffer:
     ; pusha
+
+    ; fsqrt
 
     ; draw six pixels to second buffer
     mov ax, 0x7000
@@ -290,10 +350,10 @@ draw_line:
     mov di, [bp - 6]
 
     ; print slope
-    push ax
-    mov ax, dx
-    call print_hex_value
-    pop ax
+    ; push ax
+    ; mov ax, dx
+    ; call print_hex_value
+    ; pop ax
     ; draw points between point 3 and 2
     ; starting at point 3
 
