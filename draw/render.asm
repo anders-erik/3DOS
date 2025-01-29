@@ -56,7 +56,7 @@ render:
     call current_triangle_into_pixel_coord
     call draw_current_triangle_points
 
-    call draw_triangle_row
+    call draw_current_triangle
 
     call swap_buffer
 
@@ -66,25 +66,141 @@ render:
     ret
 
 
+;-- set_current_triangle_loop_span  ---
+;
+;   Set the x/y bounding box mins and maxs for current triangle.
+;   
+set_current_triangle_loop_span:
+    mov word [p_x_int_min], 320
+    mov word [p_x_int_max], 0
+    mov word [p_y_int_min], 200
+    mov word [p_y_int_max], 0
+
+.p0_x_min:
+    mov ax, word [p_x_int_min]
+    cmp word [p0_x_int], ax
+    jae .p1_x_min ; mov if not below
+    mov ax, word [p0_x_int]
+    mov word [p_x_int_min], ax
+
+.p1_x_min:
+    mov ax, word [p_x_int_min]
+    cmp word [p1_x_int], ax
+    jae .p2_x_min ; mov if not below
+    mov ax, word [p1_x_int]
+    mov word [p_x_int_min], ax
+
+.p2_x_min
+    mov ax, word [p_x_int_min]
+    cmp word [p2_x_int], ax
+    jae .x_min_done ; mov if not below
+    mov ax, word [p2_x_int]
+    mov word [p_x_int_min], ax
+.x_min_done: 
 
 
-draw_triangle_row:
+.p0_x_max:
+    mov ax, word [p_x_int_max]
+    cmp word [p0_x_int], ax
+    jbe .p1_x_max ; new max if above current
+    mov ax, word [p0_x_int]
+    mov word [p_x_int_max], ax
+
+.p1_x_max:
+    mov ax, word [p_x_int_max]
+    cmp word [p1_x_int], ax
+    jbe .p2_x_max ; new max if above current
+    mov ax, word [p1_x_int]
+    mov word [p_x_int_max], ax
+
+.p2_x_max
+    mov ax, word [p_x_int_max]
+    cmp word [p2_x_int], ax
+    jbe .x_max_done ; new max if above current
+    mov ax, word [p2_x_int]
+    mov word [p_x_int_max], ax
+.x_max_done: 
+
+
+.p0_y_min:
+    mov ax, word [p_y_int_min]
+    cmp word [p0_y_int], ax
+    jae .p1_y_min ; new min if below current
+    mov ax, word [p0_y_int]
+    mov word [p_y_int_min], ax
+
+.p1_y_min:
+    mov ax, word [p_y_int_min]
+    cmp word [p1_x_int], ax
+    jae .p2_y_min ; new min if below current
+    mov ax, word [p1_x_int]
+    mov word [p_y_int_min], ax
+
+.p2_y_min
+    mov ax, word [p_y_int_min]
+    cmp word [p2_x_int], ax
+    jae .y_min_done ; new min if below current
+    mov ax, word [p2_x_int]
+    mov word [p_y_int_min], ax
+.y_min_done: 
+
+
+.p0_y_max:
+    mov ax, word [p_y_int_max]
+    cmp word [p0_y_int], ax
+    jbe .p1_y_max ; new max if above current
+    mov ax, word [p0_y_int]
+    mov word [p_y_int_max], ax
+
+.p1_y_max:
+    mov ax, word [p_y_int_max]
+    cmp word [p1_y_int], ax
+    jbe .p2_y_max ; new max if above current
+    mov ax, word [p1_y_int]
+    mov word [p_y_int_max], ax
+
+.p2_y_max
+    mov ax, word [p_y_int_max]
+    cmp word [p2_y_int], ax
+    jbe .y_max_done ; new max if above current
+    mov ax, word [p2_y_int]
+    mov word [p_y_int_max], ax
+.y_max_done: 
+
+
+    ret
+set_current_triangle_loop_span_end:
+
+
+; ---   draw_current_triangle ------
+;
+;   1. sets triangle bounding box values (p_x_int_min, p_x_int_max, p_y_int_min, p_y_int_max)
+;   2. loops through bounding box integer values
+;   3. sets all three current triangle signed areas
+;       4. draw pixel IFF all signed areas are positive (the front of triangle defined using right hand rule)
+;
+draw_current_triangle:
     push bp
     mov bp, sp
 
-    ; Stack variables
-    sub sp, 2 ; pixel column = x
-    sub sp, 2 ; pixel row   = y
-
-    mov si, current_triangle_pixels
+    call set_current_triangle_loop_span
 
     ; Loop through pixel row 150
-    xor cx, cx
-    mov word [p_x_int], 0
-    mov word [p_y_int], 150
+    mov ax, word [p_x_int_min]
+    mov word [p_x_int], ax   ; start col
 
-    mov dx, 320
-    .loop_row
+    mov ax, word [p_y_int_min]
+    mov word [p_y_int], ax ; start row
+
+    mov ax, word [p_y_int_max]
+    mov cx, ax ; last row
+    .next_row:
+    
+    mov ax, word [p_x_int_min]
+    mov word [p_x_int], ax   ; reset col to lowest x value of current triangle
+
+    mov dx, word [p_x_int_max] ; last col
+    .next_col:
 
     ; Update the float values to current integer indexes
     fild word [p_x_int]
@@ -93,19 +209,31 @@ draw_triangle_row:
     fstp dword [p_y]
 
     ; check if we should draw
+    ; if all are POSITIVE, draw pixel!
+    call calc_signed_area_0
+    cmp ax, 1
+    jne .end_draw
     call calc_signed_area_1
     cmp ax, 1
     jne .end_draw
+    call calc_signed_area_2
+    cmp ax, 1
+    jne .end_draw
+    
 
     mov bx, word [p_y_int]
     mov ax, word [p_x_int]
     call pixel_xa_yb
-    .end_draw
+
+    .end_draw:
 
     inc word [p_x_int]
     cmp word [p_x_int], dx
-    jb .loop_row
+    jb .next_col
 
+    inc word [p_y_int]
+    cmp word [p_y_int], cx
+    jb .next_row
 
     mov sp, bp
     pop bp
@@ -114,18 +242,28 @@ draw_current_triangle_end:
 
 
 
-;   compare 'p' with p_a to p_b
+
+;---- calc_signed_area_a to calc_signed_area_c -------
+;
+;   variables used: [fixed memory locations]
+;       p_x, pa_x, pb_x
+;       area_sign_int_a, area_sign_a
+;
+;   returns : ax = 1 if sign is positive
+;
+;   https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
+;   
+;   compare current point 'p' with line from p_a to p_b
 ;   (p_x - pb_x) * (pa_y - pb_y) - (pa_x - pb_x) * (p_y - pb_y)
-;   T1 - T2
+;   = T1 - T2
 ; 
 ;   POSTFIX: 
 ;       T1 = p_x pb_x - pa_y pb_y - *
 ;       T2 = pa_x pb_x - p_y pb_y - *
 ;       
-;       p_x pb_x - pa_y pb_y - * pa_x pb_x - p_y pb_y - * -
+;       T1 - T2 = p_x pb_x - pa_y pb_y - * pa_x pb_x - p_y pb_y - * -
 ;
-; return: ax = 1 if sign is positive
-calc_signed_area_1:
+calc_signed_area_0:
 
     fld dword [p_x]
     fld dword [p1_x]
@@ -153,10 +291,74 @@ calc_signed_area_1:
     jl .negative
     mov ax, 1
     ret
-    .negative
+    .negative:
+    mov ax, 0
+    ret
+calc_signed_area_0_end:
+calc_signed_area_1:
+
+    fld dword [p_x]
+    fld dword [p2_x]
+    fsubp
+    fld dword [p1_y]
+    fld dword [p2_y]
+    fsubp
+    fmulp
+
+    fld dword [p1_x]
+    fld dword [p2_x]
+    fsubp
+    fld dword [p_y]
+    fld dword [p2_y]
+    fsubp
+    fmulp
+
+    fsubp
+
+    
+    fist word [area_sign_int_1]
+    fstp dword [area_sign_1]
+
+    cmp word [area_sign_int_1], 0
+    jl .negative
+    mov ax, 1
+    ret
+    .negative:
     mov ax, 0
     ret
 calc_signed_area_1_end:
+calc_signed_area_2:
+
+    fld dword [p_x]
+    fld dword [p0_x]
+    fsubp
+    fld dword [p2_y]
+    fld dword [p0_y]
+    fsubp
+    fmulp
+
+    fld dword [p2_x]
+    fld dword [p0_x]
+    fsubp
+    fld dword [p_y]
+    fld dword [p0_y]
+    fsubp
+    fmulp
+
+    fsubp
+
+    
+    fist word [area_sign_int_2]
+    fstp dword [area_sign_2]
+
+    cmp word [area_sign_int_2], 0
+    jl .negative
+    mov ax, 1
+    ret
+    .negative:
+    mov ax, 0
+    ret
+calc_signed_area_2_end:
 
 
 
@@ -179,6 +381,7 @@ transform_triangle_1_into_current:
     ; fistp word [current_triangle_pixels+0]
     ; fstp dword [current_triangle + 0]
     ; fstp dword [current_triangle + 0]
+    fist word [p0_x_int]
     fstp dword [p0_x]
     ; y
     fld dword [triangle_1+4]
@@ -186,6 +389,7 @@ transform_triangle_1_into_current:
     faddp
     ; fistp word [current_triangle_pixels+2]
     ; fstp dword [current_triangle + 4]
+    fist word [p0_y_int]
     fstp dword [p0_y]
 
     ; point 1
@@ -195,6 +399,7 @@ transform_triangle_1_into_current:
     faddp
     ; fistp word [current_triangle_pixels+4]
     ; fstp dword [current_triangle + 12]
+    fist word [p1_x_int]
     fstp dword [p1_x]
 
     fld dword [triangle_1+16]
@@ -202,6 +407,7 @@ transform_triangle_1_into_current:
     faddp
     ; fistp word [current_triangle_pixels+6]
     ; fstp dword [current_triangle + 16]
+    fist word [p1_y_int]
     fstp dword [p1_y]
 
     ; point 2
@@ -210,6 +416,7 @@ transform_triangle_1_into_current:
     faddp
     ; fistp word [current_triangle_pixels+8]
     ; fstp dword [current_triangle + 24]
+    fist word [p2_x_int]
     fstp dword [p2_x]
 
     fld dword [triangle_1+28]
@@ -217,6 +424,7 @@ transform_triangle_1_into_current:
     faddp
     ; fistp word [current_triangle_pixels+10]
     ; fstp dword [current_triangle + 28]
+    fist word [p2_y_int]
     fstp dword [p2_y]
 
     ; call draw_current_triangle_points

@@ -857,11 +857,22 @@ p1_x dd 0.0
 p1_y dd 0.0
 p2_x dd 0.0
 p2_y dd 0.0
+p0_x_int dw 0.0
+p0_y_int dw 0.0
+p1_x_int dw 0.0
+p1_y_int dw 0.0
+p2_x_int dw 0.0
+p2_y_int dw 0.0
 ; Signed area values
 ;
-; pixel location for discrete pixel loop
+; current pixel location for discrete pixel loop
 p_x_int dw 0
 p_y_int dw 0
+; current triangle loop range
+p_x_int_min dw 0
+p_x_int_max dw 0
+p_y_int_min dw 0
+p_y_int_max dw 0
 ; current pixel as float for signed area calcs
 p_x dd 0
 p_y dd 0
