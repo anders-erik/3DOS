@@ -51,12 +51,17 @@ render:
 
     ; call draw_current_triangle
 
+
     ; Triangle 1
+    call update_triangle_velocity
+    call update_triangle_position
+
     call transform_triangle_1_into_current
     call current_triangle_into_pixel_coord
-    call draw_current_triangle_points
-
+    ; call draw_current_triangle_points
     call draw_current_triangle
+
+
 
     call swap_buffer
 
@@ -65,6 +70,23 @@ render:
     ; popa
     ret
 
+
+update_triangle_velocity:
+    fld dword [position+0] ; p_x 
+    fld dword [velocity+0] ; v_x 
+    faddp
+    fstp dword [position+0]
+    ret
+update_triangle_velocity_end:
+
+
+update_triangle_position:
+    fld dword [position+0] ; p_x 
+    fld dword [velocity+0] ; v_x 
+    faddp
+    fstp dword [position+0]
+    ret
+update_triangle_position_end:
 
 ;-- set_current_triangle_loop_span  ---
 ;
@@ -90,7 +112,7 @@ set_current_triangle_loop_span:
     mov ax, word [p1_x_int]
     mov word [p_x_int_min], ax
 
-.p2_x_min
+.p2_x_min:
     mov ax, word [p_x_int_min]
     cmp word [p2_x_int], ax
     jae .x_min_done ; mov if not below
