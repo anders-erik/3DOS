@@ -49,8 +49,14 @@ render:
 
     call draw_sine
 
-    call draw_current_triangle
-    call draw_triangle_1
+    ; call draw_current_triangle
+
+    ; Triangle 1
+    call transform_triangle_1_into_current
+    call current_triangle_into_pixel_coord
+    call draw_current_triangle_points
+
+    call draw_triangle_row
 
     call swap_buffer
 
@@ -60,7 +66,209 @@ render:
     ret
 
 
-draw_current_triangle:
+
+
+draw_triangle_row:
+    push bp
+    mov bp, sp
+
+    ; Stack variables
+    sub sp, 2 ; pixel column = x
+    sub sp, 2 ; pixel row   = y
+
+    mov si, current_triangle_pixels
+
+    ; Loop through pixel row 150
+    xor cx, cx
+    mov word [p_x_int], 0
+    mov word [p_y_int], 150
+
+    mov dx, 320
+    .loop_row
+
+    ; Update the float values to current integer indexes
+    fild word [p_x_int]
+    fstp dword [p_x]
+    fild word [p_y_int]
+    fstp dword [p_y]
+
+    ; check if we should draw
+    call calc_signed_area_1
+    cmp ax, 1
+    jne .end_draw
+
+    mov bx, word [p_y_int]
+    mov ax, word [p_x_int]
+    call pixel_xa_yb
+    .end_draw
+
+    inc word [p_x_int]
+    cmp word [p_x_int], dx
+    jb .loop_row
+
+
+    mov sp, bp
+    pop bp
+    ret
+draw_current_triangle_end:
+
+
+
+;   compare 'p' with p_a to p_b
+;   (p_x - pb_x) * (pa_y - pb_y) - (pa_x - pb_x) * (p_y - pb_y)
+;   T1 - T2
+; 
+;   POSTFIX: 
+;       T1 = p_x pb_x - pa_y pb_y - *
+;       T2 = pa_x pb_x - p_y pb_y - *
+;       
+;       p_x pb_x - pa_y pb_y - * pa_x pb_x - p_y pb_y - * -
+;
+; return: ax = 1 if sign is positive
+calc_signed_area_1:
+
+    fld dword [p_x]
+    fld dword [p1_x]
+    fsubp
+    fld dword [p0_y]
+    fld dword [p1_y]
+    fsubp
+    fmulp
+
+    fld dword [p0_x]
+    fld dword [p1_x]
+    fsubp
+    fld dword [p_y]
+    fld dword [p1_y]
+    fsubp
+    fmulp
+
+    fsubp
+
+    
+    fist word [area_sign_int_0]
+    fstp dword [area_sign_0]
+
+    cmp word [area_sign_int_0], 0
+    jl .negative
+    mov ax, 1
+    ret
+    .negative
+    mov ax, 0
+    ret
+calc_signed_area_1_end:
+
+
+
+;--- transform_triangle_1_into_current ---------
+; 
+;   Applies transformations and move into 'current' points
+;   
+transform_triangle_1_into_current:
+    push bp
+    mov bp, sp
+
+    ; 1. Move triangle_1 points to current triangle
+    ; 2. apply position transformation
+ 
+    ; point 0
+    ; x
+    fld dword [triangle_1+0]
+    fld dword [position + 0]
+    faddp
+    ; fistp word [current_triangle_pixels+0]
+    ; fstp dword [current_triangle + 0]
+    ; fstp dword [current_triangle + 0]
+    fstp dword [p0_x]
+    ; y
+    fld dword [triangle_1+4]
+    fld dword [position + 4]
+    faddp
+    ; fistp word [current_triangle_pixels+2]
+    ; fstp dword [current_triangle + 4]
+    fstp dword [p0_y]
+
+    ; point 1
+
+    fld dword [triangle_1+12]
+    fld dword [position + 0]
+    faddp
+    ; fistp word [current_triangle_pixels+4]
+    ; fstp dword [current_triangle + 12]
+    fstp dword [p1_x]
+
+    fld dword [triangle_1+16]
+    fld dword [position + 4]
+    faddp
+    ; fistp word [current_triangle_pixels+6]
+    ; fstp dword [current_triangle + 16]
+    fstp dword [p1_y]
+
+    ; point 2
+    fld dword [triangle_1+24]
+    fld dword [position + 0]
+    faddp
+    ; fistp word [current_triangle_pixels+8]
+    ; fstp dword [current_triangle + 24]
+    fstp dword [p2_x]
+
+    fld dword [triangle_1+28]
+    fld dword [position + 4]
+    faddp
+    ; fistp word [current_triangle_pixels+10]
+    ; fstp dword [current_triangle + 28]
+    fstp dword [p2_y]
+
+    ; call draw_current_triangle_points
+
+
+    mov sp, bp
+    pop bp
+    ret
+transform_triangle_1_into_current_end:
+
+
+
+current_triangle_into_pixel_coord:
+    push bp
+    mov bp, sp
+
+    ; 1. Move current triangle points to pixel coordinates
+ 
+    ; point 0
+    ; x
+    fld dword [p0_x]
+    fistp word [current_triangle_pixels+0]
+    ; y
+    fld dword [p0_y]
+    fistp word [current_triangle_pixels+2]
+
+    ; point 1
+    ; x
+    fld dword [p1_x]
+    fistp word [current_triangle_pixels+4]
+    ; y
+    fld dword [p1_y]
+    fistp word [current_triangle_pixels+6]
+
+    ; point 2
+    ; x
+    fld dword [p2_x]
+    fistp word [current_triangle_pixels+8]
+    ; y
+    fld dword [p2_y]
+    fistp word [current_triangle_pixels+10]
+
+    ; call draw_current_triangle
+
+    mov sp, bp
+    pop bp
+    ret
+current_triangle_into_pixel_coord_end:
+
+
+
+draw_current_triangle_points:
     mov si, current_triangle_pixels
 
     mov ax, [si+0]
@@ -75,69 +283,9 @@ draw_current_triangle:
     mov bx, [si+10]
     call pixel_xa_yb
 
-
-    
-
     ret
-draw_current_triangle_end:
+draw_current_triangle_points_end:
 
-
-
-
-;--- draw_triangle_1 ---------
-; 
-;   Renders triangle_1 without transformations.
-;   1. moves triangle 1 data to current triangle
-;   2. render current triangle
-;   
-draw_triangle_1:
-    push bp
-    mov bp, sp
-
-    ; 1. Move triangle_1 points to current triangle
-    ; 2. apply position transformation
- 
-    ; point 0
-    ; x
-    fld dword [triangle_1+0]
-    fld dword [position + 0]
-    faddp
-    fistp word [current_triangle_pixels+0]
-    ; y
-    fld dword [triangle_1+4]
-    fld dword [position + 4]
-    faddp
-    fistp word [current_triangle_pixels+2]
-
-    ; point 1
-
-    fld dword [triangle_1+12]
-    fld dword [position + 0]
-    faddp
-    fistp word [current_triangle_pixels+4]
-
-    fld dword [triangle_1+16]
-    fld dword [position + 4]
-    faddp
-    fistp word [current_triangle_pixels+6]
-
-    ; point 2
-    fld dword [triangle_1+24]
-    fld dword [position + 0]
-    faddp
-    fistp word [current_triangle_pixels+8]
-
-    fld dword [triangle_1+28]
-    fld dword [position + 4]
-    faddp
-    fistp word [current_triangle_pixels+10]
-
-    call draw_current_triangle
-
-    mov sp, bp
-    pop bp
-    ret
-draw_triangle_1_end:
 
 
 
