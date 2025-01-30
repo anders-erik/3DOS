@@ -11,6 +11,8 @@ draw/main.elf
 draw/draw.o
 draw/main.o
 
+draw/debug.lst
+
 draw/draw.ndisasm
 
 draw/lib.o

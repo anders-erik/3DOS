@@ -1,7 +1,6 @@
-; Double buffering segment
-VIDEO_D_BUFFER equ 0x7000
 
-section   .text
+
+section .text
 
 render:
     push bp
@@ -59,7 +58,7 @@ render:
     call transform_triangle_1_into_current
     call current_triangle_into_pixel_coord
     ; call draw_current_triangle_points
-    call draw_current_triangle
+    ; call draw_current_triangle
 
 
 
@@ -135,7 +134,7 @@ set_current_triangle_loop_span:
     mov ax, word [p1_x_int]
     mov word [p_x_int_max], ax
 
-.p2_x_max
+.p2_x_max:
     mov ax, word [p_x_int_max]
     cmp word [p2_x_int], ax
     jbe .x_max_done ; new max if above current
@@ -158,7 +157,7 @@ set_current_triangle_loop_span:
     mov ax, word [p1_x_int]
     mov word [p_y_int_min], ax
 
-.p2_y_min
+.p2_y_min:
     mov ax, word [p_y_int_min]
     cmp word [p2_x_int], ax
     jae .y_min_done ; new min if below current
@@ -181,7 +180,7 @@ set_current_triangle_loop_span:
     mov ax, word [p1_y_int]
     mov word [p_y_int_max], ax
 
-.p2_y_max
+.p2_y_max:
     mov ax, word [p_y_int_max]
     cmp word [p2_y_int], ax
     jbe .y_max_done ; new max if above current
